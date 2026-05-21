@@ -64,7 +64,7 @@ function createGitHubAppJWT() {
 
 async function getInstallationToken() {
   const response = await axiosInstance.post(
-    `https://api.github.com/app/installations/${process.env.GITHUB_APP_INSTALLATION_ID}/access_tokens`,
+    `https://github.sys/api/v3/app/installations/${process.env.GITHUB_APP_INSTALLATION_ID}/access_tokens`,
     {},
     { headers: { 'Authorization': `Bearer ${createGitHubAppJWT()}` } }
   );
@@ -111,7 +111,7 @@ async function getGitHubVariables() {
     console.log(`Fetching variables for ${owner}/${repo}...\n`);
 
     const repoVarsResponse = await axiosInstance.get(
-      `https://api.github.com/repos/${owner}/${repo}/actions/variables`,
+      `https://github.sys/api/v3/repos/${owner}/${repo}/actions/variables`,
       { headers: { 'Authorization': `Bearer ${token}` } }
     );
 
@@ -124,7 +124,7 @@ async function getGitHubVariables() {
 
     try {
       const orgVarsResponse = await axiosInstance.get(
-        `https://api.github.com/orgs/${owner}/actions/variables`,
+        `https://github.sys/api/v3/orgs/${owner}/actions/variables`,
         { headers: { 'Authorization': `Bearer ${token}` } }
       );
       console.log('\n=== Organization Variables ===');
