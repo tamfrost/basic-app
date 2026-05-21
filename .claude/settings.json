@@ -8,7 +8,8 @@
       "Bash(git -C /run/media/ruser/usb/git init --bare basic-app.git)",
       "Bash(git -C /home/ruser/projects/fra/basic-app remote add usb /run/media/ruser/usb/git/basic-app.git)",
       "Bash(git -C /home/ruser/projects/fra/basic-app remote set-url usb /run/media/ruser/usb/git/basic-app.git)",
-      "Bash(git -C /home/ruser/projects/fra/basic-app remote -v)"
+      "Bash(git -C /home/ruser/projects/fra/basic-app remote -v)",
+      "Bash(npm ls *)"
     ]
   }
 }
