@@ -12,6 +12,7 @@ github-app-config.json
 # Corporate certificates (testing - included in git)
 !certs/**
 certs/canna*
+certs/TSA*
 
 # Build artifacts
 build/
