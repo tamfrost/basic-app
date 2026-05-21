@@ -27,6 +27,11 @@ oauth2Proxy:
   emailDomain: "*"
   sslInsecureSkipVerify: true
   skipProviderButton: true
+  providerCaCert: ""
+  allowedGroups: "-"
+  cookieRefresh: "20m0s"
+  cookieExpire: "30m0s"
+  codeChallengeMethod: "S256"
 
 route:
   host: ""

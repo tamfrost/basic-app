@@ -1,0 +1,10 @@
+{{- if .Values.oauth2Proxy.providerCaCert }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Values.appName }}-provider-ca
+  namespace: {{ .Values.namespace }}
+data:
+  tls-ca-bundle.pem: |
+{{ .Values.oauth2Proxy.providerCaCert | indent 4 }}
+{{- end }}

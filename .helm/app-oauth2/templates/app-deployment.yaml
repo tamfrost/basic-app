@@ -25,17 +25,29 @@ spec:
           imagePullPolicy: IfNotPresent
           args:
             - --provider=oidc
-            - --oidc-issuer-url={{ required "oauth2Proxy.oidcIssuerUrl is required" .Values.oauth2Proxy.oidcIssuerUrl }}
-            - --client-id={{ required "oauth2Proxy.clientID is required" .Values.oauth2Proxy.clientID }}
-            - --client-secret={{ required "oauth2Proxy.clientSecret is required" .Values.oauth2Proxy.clientSecret }}
-            - --cookie-secret={{ required "oauth2Proxy.cookieSecret is required" .Values.oauth2Proxy.cookieSecret }}
-            - --redirect-url={{ required "oauth2Proxy.redirectUrl is required" .Values.oauth2Proxy.redirectUrl }}
             - --email-domain={{ .Values.oauth2Proxy.emailDomain }}
-            - --http-address=0.0.0.0:{{ .Values.service.proxyPort }}
+            - --insecure-oidc-allow-unverified-email
+            - --client-id={{ required "oauth2Proxy.clientID is required" .Values.oauth2Proxy.clientID }}
+            - --client-secret-file=/etc/secret/clientsecret
+            - --oidc-issuer-url={{ required "oauth2Proxy.oidcIssuerUrl is required" .Values.oauth2Proxy.oidcIssuerUrl }}
             - --upstream=http://127.0.0.1:{{ .Values.service.appPort }}
-            - --ssl-insecure-skip-verify={{ .Values.oauth2Proxy.sslInsecureSkipVerify }}
+            - --redirect-url={{ required "oauth2Proxy.redirectUrl is required" .Values.oauth2Proxy.redirectUrl }}
             - --skip-provider-button={{ .Values.oauth2Proxy.skipProviderButton }}
+            - --http-address=0.0.0.0:{{ .Values.service.proxyPort }}
+            - --cookie-secret={{ required "oauth2Proxy.cookieSecret is required" .Values.oauth2Proxy.cookieSecret }}
+            - --cookie-refresh={{ .Values.oauth2Proxy.cookieRefresh }}
+            - --cookie-expire={{ .Values.oauth2Proxy.cookieExpire }}
+            - --code-challenge-method={{ .Values.oauth2Proxy.codeChallengeMethod }}
+            - --ssl-insecure-skip-verify={{ .Values.oauth2Proxy.sslInsecureSkipVerify }}
             - --flush-interval=1s
+            {{- if .Values.oauth2Proxy.providerCaCert }}
+            - --provider-ca-file=/etc/provider-ca/tls-ca-bundle.pem
+            {{- end }}
+            {{- if ne .Values.oauth2Proxy.allowedGroups "-" }}
+            {{- range splitList "," .Values.oauth2Proxy.allowedGroups }}
+            - --allowed-group={{ . | trim }}
+            {{- end }}
+            {{- end }}
           ports:
             - name: proxy
               containerPort: {{ .Values.service.proxyPort }}
@@ -56,3 +68,21 @@ spec:
             allowPrivilegeEscalation: false
             capabilities:
               drop: [ALL]
+          volumeMounts:
+            - name: client-secret
+              mountPath: /etc/secret
+              readOnly: true
+            {{- if .Values.oauth2Proxy.providerCaCert }}
+            - name: provider-ca
+              mountPath: /etc/provider-ca
+              readOnly: true
+            {{- end }}
+      volumes:
+        - name: client-secret
+          secret:
+            secretName: {{ .Values.appName }}-client-secret
+        {{- if .Values.oauth2Proxy.providerCaCert }}
+        - name: provider-ca
+          configMap:
+            name: {{ .Values.appName }}-provider-ca
+        {{- end }}

@@ -246,19 +246,24 @@ async function deployAppOAuth2() {
   const registry   = process.env.CONTAINER_REGISTRY || 'ghcr.io';
   const repository = process.env.CONTAINER_REPOSITORY || 'tamfrost/basic-app';
   const chartPath  = path.join(__dirname, '../.helm/app-oauth2');
-  const caCertPath = path.resolve(__dirname, '..', process.env.CLIENT_CERT_FILE || 'certs/client/ca-cert.pem').replace(/\\/g, '/');
   const releaseName = 'basic-app';
   const namespace   = 'basic-app';
 
-  const clientID     = process.env.OAUTH2_CLIENT_ID     || '';
-  const clientSecret = process.env.OAUTH2_CLIENT_SECRET || '';
-  const cookieSecret = process.env.OAUTH2_COOKIE_SECRET || '';
-  const issuerUrl    = process.env.OAUTH2_OIDC_ISSUER_URL || '';
-  const redirectUrl  = process.env.OAUTH2_REDIRECT_URL  || '';
+  const clientID      = process.env.OAUTH2_CLIENT_ID       || '';
+  const clientSecret  = process.env.OAUTH2_CLIENT_SECRET   || '';
+  const cookieSecret  = process.env.OAUTH2_COOKIE_SECRET   || '';
+  const issuerUrl     = process.env.OAUTH2_OIDC_ISSUER_URL || '';
+  const redirectUrl   = process.env.OAUTH2_REDIRECT_URL    || '';
+  const allowedGroups = process.env.OAUTH2_ALLOWED_GROUPS  || '-';
 
-  console.log(`\nDeploying ${releaseName} with x509 + oauth2-proxy...`);
+  const providerCertFile = process.env.PROVIDER_CERT_FILE;
+  const providerCertPath = (providerCertFile && providerCertFile !== '-')
+    ? path.resolve(__dirname, '..', providerCertFile).replace(/\\/g, '/')
+    : null;
+
+  console.log(`\nDeploying ${releaseName} with oauth2-proxy...`);
   try {
-    runCommand(
+    const cmd =
       `helm upgrade --install ${releaseName} "${chartPath}" ` +
       `--create-namespace --namespace ${namespace} ` +
       `--set image.registry="${registry}" ` +
@@ -267,9 +272,10 @@ async function deployAppOAuth2() {
       `--set oauth2Proxy.clientSecret="${clientSecret}" ` +
       `--set oauth2Proxy.cookieSecret="${cookieSecret}" ` +
       `--set oauth2Proxy.oidcIssuerUrl="${issuerUrl}" ` +
-      `--set oauth2Proxy.redirectUrl="${redirectUrl}"`,
-      { stdio: 'inherit' }
-    );
+      `--set oauth2Proxy.redirectUrl="${redirectUrl}" ` +
+      `--set oauth2Proxy.allowedGroups="${allowedGroups}"` +
+      (providerCertPath ? ` --set-file oauth2Proxy.providerCaCert="${providerCertPath}"` : '');
+    runCommand(cmd, { stdio: 'inherit' });
     console.log(`\n✓ ${releaseName} deployed`);
     try {
       const route = runCommand(`kubectl get route ${releaseName} -n ${namespace} -o jsonpath="{.spec.host}" 2>/dev/null`, { encoding: 'utf8' }).trim();
