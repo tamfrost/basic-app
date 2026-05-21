@@ -1,0 +1,22 @@
+node_modules
+
+# Environment variables
+.env
+
+# GitHub App private keys and config
+*.pem
+!certs/**/*.pem
+github-app-config.json
+.argocd/
+
+# Corporate certificates (testing - included in git)
+!certs/**
+certs/canna*
+
+# Build artifacts
+build/
+*.o
+*.exe
+
+# Docker
+*.log

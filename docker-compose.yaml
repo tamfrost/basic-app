@@ -1,0 +1,6 @@
+services:
+  basic-app:
+    build: .
+    image: ${CONTAINER_REGISTRY}/${CONTAINER_REGISTRY_USERNAME}/df-sim:latest
+    ports:
+      - "3000:3000"
