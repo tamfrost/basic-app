@@ -1,7 +1,14 @@
 {
   "permissions": {
     "allow": [
-      "Bash(kubectl get *)"
+      "Bash(kubectl get *)",
+      "Bash(ls /run/media/ruser/usb/git/ 2>&1)",
+      "Read(//run/media/ruser/SERIAL/git/**)",
+      "Bash(git -C /home/ruser/projects/fra/basic-app init)",
+      "Bash(git -C /run/media/ruser/usb/git init --bare basic-app.git)",
+      "Bash(git -C /home/ruser/projects/fra/basic-app remote add usb /run/media/ruser/usb/git/basic-app.git)",
+      "Bash(git -C /home/ruser/projects/fra/basic-app remote set-url usb /run/media/ruser/usb/git/basic-app.git)",
+      "Bash(git -C /home/ruser/projects/fra/basic-app remote -v)"
     ]
   }
 }

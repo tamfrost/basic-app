@@ -201,7 +201,7 @@ async function deployAppX509() {
   const registry = process.env.CONTAINER_REGISTRY || 'ghcr.io';
   const repository = process.env.CONTAINER_REPOSITORY || 'tamfrost/basic-app';
   const chartPath = path.join(__dirname, '../.helm/app-x509');
-  const caCertPath = path.join(__dirname, '../certs/client/ca-cert.pem');
+  const caCertPath = path.resolve(__dirname, '..', process.env.CLIENT_CERT_FILE || 'certs/client/ca-cert.pem');
   const releaseName = 'basic-app';
   const namespace = 'basic-app';
 
@@ -226,8 +226,8 @@ async function deployAppX509() {
 }
 
 async function deleteAppX509() {
-  const releaseName = 'basic-app-x509';
-  const namespace = 'basic-app-x509';
+  const releaseName = 'basic-app';
+  const namespace = 'basic-app';
 
   const ok = await confirm({ message: `Delete ${releaseName} from namespace ${namespace}?`, default: false });
   if (!ok) { console.log('Cancelled.'); return; }
