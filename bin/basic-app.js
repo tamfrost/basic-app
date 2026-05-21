@@ -201,7 +201,7 @@ async function deployAppX509() {
   const registry = process.env.CONTAINER_REGISTRY || 'ghcr.io';
   const repository = process.env.CONTAINER_REPOSITORY || 'tamfrost/basic-app';
   const chartPath = path.join(__dirname, '../.helm/app-x509');
-  const caCertPath = path.resolve(__dirname, '..', process.env.CLIENT_CERT_FILE || 'certs/client/ca-cert.pem');
+  const caCertPath = path.resolve(__dirname, '..', process.env.CLIENT_CERT_FILE || 'certs/client/ca-cert.pem').replace(/\\/g, '/');
   const releaseName = 'basic-app';
   const namespace = 'basic-app';
 
