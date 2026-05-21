@@ -1,0 +1,2 @@
+# This file keeps the certs directory in git
+# Actual certificate files should not be committed

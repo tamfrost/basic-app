@@ -197,6 +197,62 @@ async function deleteApp() {
   }
 }
 
+async function deployAppX509() {
+  const registry = process.env.CONTAINER_REGISTRY || 'ghcr.io';
+  const repository = process.env.CONTAINER_REPOSITORY || 'tamfrost/basic-app';
+  const chartPath = path.join(__dirname, '../.helm/app-x509');
+  const caCertPath = path.join(__dirname, '../certs/client/ca-cert.pem');
+  const releaseName = 'basic-app';
+  const namespace = 'basic-app';
+
+  console.log(`\nDeploying ${releaseName} with x509 proxy...`);
+  try {
+    runCommand(
+      `helm upgrade --install ${releaseName} "${chartPath}" ` +
+      `--create-namespace --namespace ${namespace} ` +
+      `--set image.registry="${registry}" ` +
+      `--set image.repository="${repository}" ` +
+      `--set-file caCert="${caCertPath}"`,
+      { stdio: 'inherit' }
+    );
+    console.log(`\n✓ ${releaseName} deployed`);
+    try {
+      const route = runCommand(`kubectl get route ${releaseName} -n ${namespace} -o jsonpath="{.spec.host}" 2>/dev/null`, { encoding: 'utf8' }).trim();
+      if (route) console.log(`🌐 https://${route}  (requires client cert)`);
+    } catch (_) {}
+  } catch (error) {
+    console.error('\nDeploy failed:', error.message);
+  }
+}
+
+async function deleteAppX509() {
+  const releaseName = 'basic-app-x509';
+  const namespace = 'basic-app-x509';
+
+  const ok = await confirm({ message: `Delete ${releaseName} from namespace ${namespace}?`, default: false });
+  if (!ok) { console.log('Cancelled.'); return; }
+
+  try {
+    runCommand(`helm uninstall ${releaseName} --namespace ${namespace}`, { stdio: 'inherit' });
+    console.log(`\n✓ ${releaseName} deleted`);
+  } catch (error) {
+    console.error('\nDelete failed:', error.message);
+  }
+}
+
+async function appX509Menu() {
+  const action = await select({
+    message: 'App (x509):',
+    choices: [
+      { name: 'Deploy', value: 'deploy' },
+      { name: 'Delete', value: 'delete' },
+      { name: 'Back', value: 'back' },
+    ]
+  });
+  if (action === 'deploy') await deployAppX509();
+  if (action === 'delete') await deleteAppX509();
+}
+
 async function appMenu() {
   const action = await select({
     message: 'App:',
@@ -249,6 +305,7 @@ async function main() {
       message: 'What would you like to do?',
       choices: [
         { name: 'App', value: 'app' },
+        { name: 'App (x509)', value: 'app_x509' },
         { name: 'Check kubectl context', value: 'check_context' },
         { name: 'Get GitHub variables', value: 'get_variables' },
         { name: 'Exit', value: 'exit' }
@@ -258,6 +315,10 @@ async function main() {
     switch (action) {
       case 'app':
         await appMenu();
+        console.log('\n');
+        break;
+      case 'app_x509':
+        await appX509Menu();
         console.log('\n');
         break;
       case 'check_context':

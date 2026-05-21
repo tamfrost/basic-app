@@ -9,9 +9,14 @@ image:
   tag: "latest"
   pullPolicy: Always
 
+nginx:
+  image: nginx:alpine
+
+caCert: ""
+
 service:
   port: 3000
+  nginxPort: 8443
 
 route:
-  enabled: false
   host: ""

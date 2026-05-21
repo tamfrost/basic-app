@@ -14,7 +14,7 @@ spec:
         app: {{ .Values.appName }}
     spec:
       containers:
-        - name: {{ .Values.appName }}
+        - name: app
           image: {{ required "image.registry is required" .Values.image.registry }}/{{ required "image.repository is required" .Values.image.repository }}:{{ .Values.image.tag }}
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           ports:

@@ -63,25 +63,29 @@ jobs:
           VERSION=$(grep '"version"' package.json | head -1 | cut -d'"' -f4)
           echo "version=$VERSION" >> $GITHUB_OUTPUT
 
-      - name: Update Helm chart version and image tag
+      - name: Update Helm chart versions and image tags
         shell: bash
         run: |
           SHORT_SHA="${{ steps.sha.outputs.short }}"
           VERSION="${{ steps.version.outputs.version }}"
-          sed -i "s/^version:.*/version: $VERSION/" .helm/app/Chart.yaml
-          sed -i "s/^appVersion:.*/appVersion: \"$VERSION\"/" .helm/app/Chart.yaml
-          sed -i "s/tag: \".*\"/tag: \"$SHORT_SHA\"/" .helm/app/values.yaml
+          for chart in .helm/*/Chart.yaml; do
+            sed -i "s/^version:.*/version: $VERSION/" "$chart"
+            sed -i "s/^appVersion:.*/appVersion: \"$VERSION\"/" "$chart"
+          done
+          for values in .helm/*/values.yaml; do
+            sed -i "s/tag: \".*\"/tag: \"$SHORT_SHA\"/" "$values"
+          done
 
       - name: Checkout infra repository
         shell: bash
         run: |
           git clone https://x-access-token:${{ secrets.INFRA_PAT }}@${INFRA_REGISTRY#https://} infra-repo
 
-      - name: Copy Helm chart to infra repository
+      - name: Copy Helm charts to infra repository
         shell: bash
         run: |
           mkdir -p infra-repo/${{ env.HELM_CHART_PATH }}
-          cp -r .helm/app/* infra-repo/${{ env.HELM_CHART_PATH }}/
+          cp -r .helm/* infra-repo/${{ env.HELM_CHART_PATH }}/
 
       - name: Commit and push Helm chart
         shell: bash
