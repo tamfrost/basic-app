@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-const { select } = require('@inquirer/prompts');
+const { select, confirm } = require('@inquirer/prompts');
 const axios = require('axios');
 const jwt = require('jsonwebtoken');
 const { HttpsProxyAgent } = require('https-proxy-agent');
@@ -155,6 +155,61 @@ async function getGitHubVariables() {
   }
 }
 
+async function deployApp() {
+  const registry = process.env.CONTAINER_REGISTRY || 'ghcr.io';
+  const repository = process.env.CONTAINER_REPOSITORY || 'tamfrost/basic-app';
+  const chartPath = path.join(__dirname, '../.helm/app');
+  const appName = 'basic-app';
+  const namespace = 'basic-app';
+
+  console.log(`\nDeploying ${appName} from ${registry}/${repository}...`);
+  try {
+    runCommand(
+      `helm upgrade --install ${appName} "${chartPath}" ` +
+      `--create-namespace --namespace ${namespace} ` +
+      `--set image.registry="${registry}" ` +
+      `--set image.repository="${repository}" ` +
+      `--set route.enabled=true`,
+      { stdio: 'inherit' }
+    );
+    console.log(`\n✓ ${appName} deployed`);
+    try {
+      const route = runCommand(`kubectl get route ${appName} -n ${namespace} -o jsonpath="{.spec.host}" 2>/dev/null`, { encoding: 'utf8' }).trim();
+      if (route) console.log(`🌐 https://${route}`);
+    } catch (_) {}
+  } catch (error) {
+    console.error('\nDeploy failed:', error.message);
+  }
+}
+
+async function deleteApp() {
+  const appName = 'basic-app';
+  const namespace = 'basic-app';
+
+  const ok = await confirm({ message: `Delete ${appName} from namespace ${namespace}?`, default: false });
+  if (!ok) { console.log('Cancelled.'); return; }
+
+  try {
+    runCommand(`helm uninstall ${appName} --namespace ${namespace}`, { stdio: 'inherit' });
+    console.log(`\n✓ ${appName} deleted`);
+  } catch (error) {
+    console.error('\nDelete failed:', error.message);
+  }
+}
+
+async function appMenu() {
+  const action = await select({
+    message: 'App:',
+    choices: [
+      { name: 'Deploy', value: 'deploy' },
+      { name: 'Delete', value: 'delete' },
+      { name: 'Back', value: 'back' },
+    ]
+  });
+  if (action === 'deploy') await deployApp();
+  if (action === 'delete') await deleteApp();
+}
+
 async function checkKubectlContext() {
   try {
     console.log('\n=== Current kubectl Context ===\n');
@@ -193,6 +248,7 @@ async function main() {
     const action = await select({
       message: 'What would you like to do?',
       choices: [
+        { name: 'App', value: 'app' },
         { name: 'Check kubectl context', value: 'check_context' },
         { name: 'Get GitHub variables', value: 'get_variables' },
         { name: 'Exit', value: 'exit' }
@@ -200,6 +256,10 @@ async function main() {
     });
 
     switch (action) {
+      case 'app':
+        await appMenu();
+        console.log('\n');
+        break;
       case 'check_context':
         await checkKubectlContext();
         console.log('\n');
