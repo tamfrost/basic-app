@@ -1,0 +1,37 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Values.appName }}-nginx-config
+  namespace: {{ .Values.namespace }}
+data:
+  nginx.conf: |
+    pid /tmp/nginx.pid;
+    events {}
+    http {
+      client_body_temp_path /tmp/nginx_client_temp;
+      proxy_temp_path        /tmp/nginx_proxy_temp;
+      fastcgi_temp_path      /tmp/nginx_fastcgi_temp;
+      uwsgi_temp_path        /tmp/nginx_uwsgi_temp;
+      scgi_temp_path         /tmp/nginx_scgi_temp;
+
+      proxy_buffer_size       128k;
+      proxy_buffers           4 256k;
+      proxy_busy_buffers_size 256k;
+
+      server {
+        listen {{ .Values.service.nginxPort }} ssl;
+
+        ssl_certificate     /etc/nginx/ssl/tls.crt;
+        ssl_certificate_key /etc/nginx/ssl/tls.key;
+
+        # Client cert auth delegated to Keycloak — nginx does not request a client cert.
+
+        location / {
+          proxy_pass http://{{ .Values.appName }}:{{ .Values.service.proxyPort }};
+          proxy_set_header Host              $host;
+          proxy_set_header X-Real-IP         $remote_addr;
+          proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+          proxy_set_header X-Forwarded-Proto https;
+        }
+      }
+    }

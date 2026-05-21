@@ -1,0 +1,32 @@
+appName: basic-app
+namespace: basic-app
+
+replicaCount: 1
+
+image:
+  registry: ""
+  repository: ""
+  tag: "latest"
+  pullPolicy: Always
+
+nginx:
+  image: nginx:alpine
+
+service:
+  appPort: 3000
+  proxyPort: 4180
+  nginxPort: 8443
+
+oauth2Proxy:
+  image: quay.io/oauth2-proxy/oauth2-proxy:v7.6.0
+  clientID: ""
+  clientSecret: ""
+  cookieSecret: ""
+  oidcIssuerUrl: ""
+  redirectUrl: ""
+  emailDomain: "*"
+  sslInsecureSkipVerify: true
+  skipProviderButton: true
+
+route:
+  host: ""

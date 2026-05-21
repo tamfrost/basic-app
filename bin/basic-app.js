@@ -44,6 +44,8 @@ if (ca) agentOptions.ca = ca;
 let httpsAgent = undefined;
 if (proxy) httpsAgent = new HttpsProxyAgent(proxy, agentOptions);
 
+const GITHUB_API_URL = (process.env.GITHUB_API_URL || 'https://api.github.com').replace(/\/$/, '');
+
 const axiosInstance = axios.create({
   httpsAgent,
   timeout: 60000,
@@ -64,7 +66,7 @@ function createGitHubAppJWT() {
 
 async function getInstallationToken() {
   const response = await axiosInstance.post(
-    `https://github.sys/api/v3/app/installations/${process.env.GITHUB_APP_INSTALLATION_ID}/access_tokens`,
+    `${GITHUB_API_URL}/app/installations/${process.env.GITHUB_APP_INSTALLATION_ID}/access_tokens`,
     {},
     { headers: { 'Authorization': `Bearer ${createGitHubAppJWT()}` } }
   );
@@ -111,7 +113,7 @@ async function getGitHubVariables() {
     console.log(`Fetching variables for ${owner}/${repo}...\n`);
 
     const repoVarsResponse = await axiosInstance.get(
-      `https://github.sys/api/v3/repos/${owner}/${repo}/actions/variables`,
+      `${GITHUB_API_URL}/repos/${owner}/${repo}/actions/variables`,
       { headers: { 'Authorization': `Bearer ${token}` } }
     );
 
@@ -124,7 +126,7 @@ async function getGitHubVariables() {
 
     try {
       const orgVarsResponse = await axiosInstance.get(
-        `https://github.sys/api/v3/orgs/${owner}/actions/variables`,
+        `${GITHUB_API_URL}/orgs/${owner}/actions/variables`,
         { headers: { 'Authorization': `Bearer ${token}` } }
       );
       console.log('\n=== Organization Variables ===');
@@ -240,6 +242,72 @@ async function deleteAppX509() {
   }
 }
 
+async function deployAppOAuth2() {
+  const registry   = process.env.CONTAINER_REGISTRY || 'ghcr.io';
+  const repository = process.env.CONTAINER_REPOSITORY || 'tamfrost/basic-app';
+  const chartPath  = path.join(__dirname, '../.helm/app-oauth2');
+  const caCertPath = path.resolve(__dirname, '..', process.env.CLIENT_CERT_FILE || 'certs/client/ca-cert.pem').replace(/\\/g, '/');
+  const releaseName = 'basic-app';
+  const namespace   = 'basic-app';
+
+  const clientID     = process.env.OAUTH2_CLIENT_ID     || '';
+  const clientSecret = process.env.OAUTH2_CLIENT_SECRET || '';
+  const cookieSecret = process.env.OAUTH2_COOKIE_SECRET || '';
+  const issuerUrl    = process.env.OAUTH2_OIDC_ISSUER_URL || '';
+  const redirectUrl  = process.env.OAUTH2_REDIRECT_URL  || '';
+
+  console.log(`\nDeploying ${releaseName} with x509 + oauth2-proxy...`);
+  try {
+    runCommand(
+      `helm upgrade --install ${releaseName} "${chartPath}" ` +
+      `--create-namespace --namespace ${namespace} ` +
+      `--set image.registry="${registry}" ` +
+      `--set image.repository="${repository}" ` +
+      `--set oauth2Proxy.clientID="${clientID}" ` +
+      `--set oauth2Proxy.clientSecret="${clientSecret}" ` +
+      `--set oauth2Proxy.cookieSecret="${cookieSecret}" ` +
+      `--set oauth2Proxy.oidcIssuerUrl="${issuerUrl}" ` +
+      `--set oauth2Proxy.redirectUrl="${redirectUrl}"`,
+      { stdio: 'inherit' }
+    );
+    console.log(`\n✓ ${releaseName} deployed`);
+    try {
+      const route = runCommand(`kubectl get route ${releaseName} -n ${namespace} -o jsonpath="{.spec.host}" 2>/dev/null`, { encoding: 'utf8' }).trim();
+      if (route) console.log(`🌐 https://${route}  (x509 + oauth2)`);
+    } catch (_) {}
+  } catch (error) {
+    console.error('\nDeploy failed:', error.message);
+  }
+}
+
+async function deleteAppOAuth2() {
+  const releaseName = 'basic-app';
+  const namespace   = 'basic-app';
+
+  const ok = await confirm({ message: `Delete ${releaseName} from namespace ${namespace}?`, default: false });
+  if (!ok) { console.log('Cancelled.'); return; }
+
+  try {
+    runCommand(`helm uninstall ${releaseName} --namespace ${namespace}`, { stdio: 'inherit' });
+    console.log(`\n✓ ${releaseName} deleted`);
+  } catch (error) {
+    console.error('\nDelete failed:', error.message);
+  }
+}
+
+async function appOAuth2Menu() {
+  const action = await select({
+    message: 'App (oauth2):',
+    choices: [
+      { name: 'Deploy', value: 'deploy' },
+      { name: 'Delete', value: 'delete' },
+      { name: 'Back',   value: 'back'   },
+    ]
+  });
+  if (action === 'deploy') await deployAppOAuth2();
+  if (action === 'delete') await deleteAppOAuth2();
+}
+
 async function appX509Menu() {
   const action = await select({
     message: 'App (x509):',
@@ -306,6 +374,7 @@ async function main() {
       choices: [
         { name: 'App', value: 'app' },
         { name: 'App (x509)', value: 'app_x509' },
+        { name: 'App (oauth2)', value: 'app_oauth2' },
         { name: 'Check kubectl context', value: 'check_context' },
         { name: 'Get GitHub variables', value: 'get_variables' },
         { name: 'Exit', value: 'exit' }
@@ -319,6 +388,10 @@ async function main() {
         break;
       case 'app_x509':
         await appX509Menu();
+        console.log('\n');
+        break;
+      case 'app_oauth2':
+        await appOAuth2Menu();
         console.log('\n');
         break;
       case 'check_context':

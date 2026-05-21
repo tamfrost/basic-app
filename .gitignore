@@ -21,3 +21,7 @@ build/
 
 # Docker
 *.log
+
+old_app
+
+other-oauth2.yaml

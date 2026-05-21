@@ -1,0 +1,37 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Values.appName }}-nginx
+  namespace: {{ .Values.namespace }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: {{ .Values.appName }}-nginx
+  template:
+    metadata:
+      labels:
+        app: {{ .Values.appName }}-nginx
+    spec:
+      containers:
+        - name: nginx
+          image: {{ .Values.nginx.image }}
+          ports:
+            - containerPort: {{ .Values.service.nginxPort }}
+          volumeMounts:
+            - name: nginx-config
+              mountPath: /etc/nginx/nginx.conf
+              subPath: nginx.conf
+            - name: nginx-tls
+              mountPath: /etc/nginx/ssl/tls.crt
+              subPath: tls.crt
+            - name: nginx-tls
+              mountPath: /etc/nginx/ssl/tls.key
+              subPath: tls.key
+      volumes:
+        - name: nginx-config
+          configMap:
+            name: {{ .Values.appName }}-nginx-config
+        - name: nginx-tls
+          secret:
+            secretName: {{ .Values.appName }}-nginx-tls

@@ -1,0 +1,6 @@
+apiVersion: v2
+name: basic-app-oauth2
+description: basic-app with nginx x509 proxy and oauth2-proxy sidecar
+type: application
+version: 1.0.0
+appVersion: "1.0.0"

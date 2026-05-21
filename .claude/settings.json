@@ -8,7 +8,14 @@
       "Bash(git -C /run/media/ruser/usb/git init --bare basic-app.git)",
       "Bash(git -C /home/ruser/projects/fra/basic-app remote add usb /run/media/ruser/usb/git/basic-app.git)",
       "Bash(git -C /home/ruser/projects/fra/basic-app remote set-url usb /run/media/ruser/usb/git/basic-app.git)",
-      "Bash(git -C /home/ruser/projects/fra/basic-app remote -v)"
+      "Bash(git -C /home/ruser/projects/fra/basic-app remote -v)",
+      "Bash(npm ls *)",
+      "Bash(helm list *)",
+      "Bash(kubectl exec *)",
+      "Bash(openssl x509 *)",
+      "Bash(openssl pkcs12 *)",
+      "Bash(find /home/ruser/projects/fra -name \"nginx.conf\" -o -name \"*nginx*configmap*\" 2>/dev/null | grep -v basic-app)",
+      "Read(//home/ruser/projects/fra/**)"
     ]
   }
 }

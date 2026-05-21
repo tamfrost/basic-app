@@ -1,0 +1,58 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Values.appName }}
+  namespace: {{ .Values.namespace }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      app: {{ .Values.appName }}
+  template:
+    metadata:
+      labels:
+        app: {{ .Values.appName }}
+    spec:
+      containers:
+        - name: app
+          image: {{ required "image.registry is required" .Values.image.registry }}/{{ required "image.repository is required" .Values.image.repository }}:{{ .Values.image.tag }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - containerPort: {{ .Values.service.appPort }}
+
+        - name: oauth2-proxy
+          image: {{ .Values.oauth2Proxy.image }}
+          imagePullPolicy: IfNotPresent
+          args:
+            - --provider=oidc
+            - --oidc-issuer-url={{ required "oauth2Proxy.oidcIssuerUrl is required" .Values.oauth2Proxy.oidcIssuerUrl }}
+            - --client-id={{ required "oauth2Proxy.clientID is required" .Values.oauth2Proxy.clientID }}
+            - --client-secret={{ required "oauth2Proxy.clientSecret is required" .Values.oauth2Proxy.clientSecret }}
+            - --cookie-secret={{ required "oauth2Proxy.cookieSecret is required" .Values.oauth2Proxy.cookieSecret }}
+            - --redirect-url={{ required "oauth2Proxy.redirectUrl is required" .Values.oauth2Proxy.redirectUrl }}
+            - --email-domain={{ .Values.oauth2Proxy.emailDomain }}
+            - --http-address=0.0.0.0:{{ .Values.service.proxyPort }}
+            - --upstream=http://127.0.0.1:{{ .Values.service.appPort }}
+            - --ssl-insecure-skip-verify={{ .Values.oauth2Proxy.sslInsecureSkipVerify }}
+            - --skip-provider-button={{ .Values.oauth2Proxy.skipProviderButton }}
+            - --flush-interval=1s
+          ports:
+            - name: proxy
+              containerPort: {{ .Values.service.proxyPort }}
+          livenessProbe:
+            httpGet:
+              path: /ping
+              port: proxy
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /ping
+              port: proxy
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          securityContext:
+            runAsNonRoot: true
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: [ALL]
