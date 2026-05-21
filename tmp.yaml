@@ -1,0 +1,112 @@
+# https://github.com/tamfrost/df-sim/actions
+
+name: Build and Push Docker Image (Linux Crow)
+
+on:
+  # push:
+  #   branches:
+  #     - hadapt-crow
+  workflow_dispatch:
+
+env:
+  REGISTRY: ${{ vars.CONTAINER_REGISTRY || 'ghcr.io' }}
+  IMAGE_NAME: ${{ github.repository }}
+  INFRA_REPO: ${{ vars.INFRA_REPO || 'tamfrost/infra' }}
+  HELM_CHART_PATH: ${{ vars.HELM_CHART_PATH || 'helmcharts/df-sim' }}
+  GIT_SSL_NO_VERIFY: ${{ vars.EXTRA_CERTS == '' && '1' || '0' }}
+
+jobs:
+  build-and-push:
+    runs-on: [self-hosted, Linux]
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup certificates from environment variable
+        if: ${{ vars.EXTRA_CERTS != '' }}
+        shell: bash
+        run: |
+          echo "${{ vars.EXTRA_CERTS }}" > certs/extra-ca-bundle.crt
+          echo "Certificates added to certs folder"
+
+      - name: Log in to Container Registry
+        shell: bash
+        run: |
+          echo "${{ secrets.GITHUB_TOKEN }}" | docker login ${{ env.REGISTRY }} -u ${{ github.actor }} --password-stdin
+
+      - name: Extract version from package.json
+        id: get_version
+        shell: bash
+        run: |
+          VERSION=$(grep '"version"' app/package.json | head -1 | cut -d'"' -f4)
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Chart version: $VERSION"
+
+      - name: Build and tag Docker image (Crow)
+        shell: bash
+        run: |
+          SHORT_SHA=$(echo "${{ github.sha }}" | cut -c1-7)
+          IMAGE_BASE="${{ env.REGISTRY }}/$(echo '${{ env.IMAGE_NAME }}' | tr '[:upper:]' '[:lower:]')"
+          BUILD_TIME=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+          
+          docker build \
+            --build-arg BUILD_TIME="${BUILD_TIME}" \
+            --build-arg BUILD_VERSION="${{ steps.get_version.outputs.version }}" \
+            --build-arg BUILD_COMMIT="${SHORT_SHA}" \
+            -f Dockerfile \
+            -t "${IMAGE_BASE}:${SHORT_SHA}" .
+          
+          docker tag "${IMAGE_BASE}:${SHORT_SHA}" "${IMAGE_BASE}:latest"
+      
+      - name: Push Docker images
+        shell: bash
+        run: |
+          SHORT_SHA=$(echo "${{ github.sha }}" | cut -c1-7)
+          IMAGE_BASE="${{ env.REGISTRY }}/$(echo '${{ env.IMAGE_NAME }}' | tr '[:upper:]' '[:lower:]')"
+          
+          docker push "${IMAGE_BASE}:${SHORT_SHA}"
+          docker push "${IMAGE_BASE}:latest"
+
+      - name: Update Helm Chart version
+        shell: bash
+        run: |
+          VERSION="${{ steps.get_version.outputs.version }}"
+          SHORT_SHA=$(echo "${{ github.sha }}" | cut -c1-7)
+          
+          # Update Chart.yaml
+          sed -i "s/^version:.*/version: $VERSION/" .helm/app/Chart.yaml
+          sed -i "s/^appVersion:.*/appVersion: \"$VERSION\"/" .helm/app/Chart.yaml
+          
+          # Update values.yaml to use commit SHA as image tag
+          sed -i "s/tag: \".*\"/tag: \"$SHORT_SHA\"/" .helm/app/values.yaml
+          
+          echo "Chart.yaml:"
+          cat .helm/app/Chart.yaml
+          echo ""
+          echo "Image tag in values.yaml:"
+          grep "tag:" .helm/app/values.yaml
+
+      - name: Checkout infra repository
+        shell: bash
+        run: |
+          git -c http.sslVerify=false clone https://x-access-token:${{ secrets.INFRA_PAT }}@${GITHUB_SERVER_URL#https://}/${{ env.INFRA_REPO }} infra-repo
+
+      - name: Copy Helm chart to infra repository
+        shell: bash
+        run: |
+          mkdir -p infra-repo/${{ env.HELM_CHART_PATH }}
+          cp -r .helm/app/* infra-repo/${{ env.HELM_CHART_PATH }}/
+          
+      - name: Commit and push Helm chart
+        shell: bash
+        run: |
+          cd infra-repo
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add ${{ env.HELM_CHART_PATH }}/
+          git commit -m "Update df-sim Helm chart (Crow) to version ${{ steps.get_version.outputs.version }} (commit ${{ github.sha }})" || echo "No changes to commit"
+          git push
