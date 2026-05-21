@@ -8,13 +8,17 @@ on:
   workflow_dispatch:
 
 # Required repository variables:
-#   CONTAINER_REGISTRY       - registry host, e.g. ghcr.io or containers.example.com
+#   CONTAINER_REGISTRY - registry host, e.g. ghcr.io or containers.example.com
+#   INFRA_REGISTRY     - full URL of the infra repo, e.g. https://github.com/tamfrost/infra
+#   HELM_CHART_PATH    - path inside infra repo, e.g. helmcharts/basic-app
 # Required repository secrets:
-#   CONTAINER_REGISTRY_TOKEN - registry password/token (defaults to GITHUB_TOKEN if unset)
+#   INFRA_PAT          - PAT with write access to the infra repo
 
 env:
   REGISTRY: ${{ vars.CONTAINER_REGISTRY || 'ghcr.io' }}
   IMAGE_NAME: ${{ github.repository }}
+  INFRA_REGISTRY: ${{ vars.INFRA_REGISTRY }}
+  HELM_CHART_PATH: ${{ vars.HELM_CHART_PATH }}
 
 jobs:
   build-and-push:
@@ -37,6 +41,10 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.CONTAINER_REGISTRY_TOKEN || secrets.GITHUB_TOKEN }}
 
+      - name: Set short SHA
+        id: sha
+        run: echo "short=$(echo ${{ github.sha }} | cut -c1-7)" >> $GITHUB_OUTPUT
+
       - name: Build and push
         uses: docker/build-push-action@v6
         with:
@@ -44,6 +52,43 @@ jobs:
           push: true
           tags: |
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
-            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:sha-${{ github.sha }}
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.sha.outputs.short }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+      - name: Extract version from package.json
+        id: version
+        shell: bash
+        run: |
+          VERSION=$(grep '"version"' package.json | head -1 | cut -d'"' -f4)
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Update Helm chart version and image tag
+        shell: bash
+        run: |
+          SHORT_SHA="${{ steps.sha.outputs.short }}"
+          VERSION="${{ steps.version.outputs.version }}"
+          sed -i "s/^version:.*/version: $VERSION/" .helm/app/Chart.yaml
+          sed -i "s/^appVersion:.*/appVersion: \"$VERSION\"/" .helm/app/Chart.yaml
+          sed -i "s/tag: \".*\"/tag: \"$SHORT_SHA\"/" .helm/app/values.yaml
+
+      - name: Checkout infra repository
+        shell: bash
+        run: |
+          git clone https://x-access-token:${{ secrets.INFRA_PAT }}@${INFRA_REGISTRY#https://} infra-repo
+
+      - name: Copy Helm chart to infra repository
+        shell: bash
+        run: |
+          mkdir -p infra-repo/${{ env.HELM_CHART_PATH }}
+          cp -r .helm/app/* infra-repo/${{ env.HELM_CHART_PATH }}/
+
+      - name: Commit and push Helm chart
+        shell: bash
+        run: |
+          cd infra-repo
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add ${{ env.HELM_CHART_PATH }}/
+          git commit -m "Update basic-app Helm chart to ${{ steps.version.outputs.version }} (${{ steps.sha.outputs.short }})" || echo "No changes to commit"
+          git push
