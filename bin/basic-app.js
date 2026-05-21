@@ -273,7 +273,7 @@ async function deployAppOAuth2() {
       `--set oauth2Proxy.cookieSecret="${cookieSecret}" ` +
       `--set oauth2Proxy.oidcIssuerUrl="${issuerUrl}" ` +
       `--set oauth2Proxy.redirectUrl="${redirectUrl}" ` +
-      `--set oauth2Proxy.allowedGroups="${allowedGroups}"` +
+      `--set oauth2Proxy.allowedGroups="${allowedGroups.replace(/,/g, '\\,')}"` +
       (providerCertPath ? ` --set-file oauth2Proxy.providerCaCert="${providerCertPath}"` : '');
     runCommand(cmd, { stdio: 'inherit' });
     console.log(`\n✓ ${releaseName} deployed`);
