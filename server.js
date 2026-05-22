@@ -54,8 +54,25 @@ http.createServer((req, res) => {
       </table>`;
   }
 
+  const authUser   = req.headers['x-auth-request-user']   || req.headers['x-forwarded-user']   || '';
+  const authEmail  = req.headers['x-auth-request-email']  || req.headers['x-forwarded-email']  || '';
+  const authGroups = req.headers['x-auth-request-groups'] || req.headers['x-forwarded-groups'] || '';
+  let authSection = '';
+  if (authUser || authEmail || authGroups) {
+    const rows = [
+      ['User',   authUser],
+      ['Email',  authEmail],
+      ['Groups', authGroups],
+    ].filter(([, v]) => v);
+    authSection = `
+      <h2>Authenticated user</h2>
+      <table border="1" cellpadding="6" style="border-collapse:collapse">
+        ${rows.map(([k, v]) => `<tr><th align="left">${k}</th><td>${v}</td></tr>`).join('')}
+      </table>`;
+  }
+
   res.writeHead(200, { 'Content-Type': 'text/html' });
-  res.end(`<html><body><h1>hello from basic-app</h1>${certSection}${configSection()}</body></html>\n`);
+  res.end(`<html><body><h1>hello from basic-app</h1>${authSection}${certSection}${configSection()}</body></html>\n`);
 }).listen(PORT, () => {
   console.log(`app on http://localhost:${PORT}`);
 });
