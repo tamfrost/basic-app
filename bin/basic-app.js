@@ -416,16 +416,24 @@ function showCertStatus(namespace, releaseName) {
       { encoding: 'utf8' }
     ).trim();
     if (secret) {
-      const tmpCert = path.join(__dirname, '../.tmp-tls-cert.pem');
-      fs.writeFileSync(tmpCert, Buffer.from(secret, 'base64').toString('utf8'));
+      const pem = Buffer.from(secret, 'base64').toString('utf8');
+      const subject = (pem.match(/subject=([^\n]+)/) || [])[1] || '';
+      const san     = (pem.match(/DNS:([^\n,]+)/)    || [])[1] || '';
+      const notBefore = pem.match(/Not Before\s*:\s*([^\n]+)/i);
+      const notAfter  = pem.match(/Not After\s*:\s*([^\n]+)/i);
+
+      // Extract fields from PEM using basic ASN.1 text decoding via crypto
+      const crypto = require('crypto');
       try {
-        const info = runCommand(
-          `openssl x509 -noout -issuer -subject -dates -in "${tmpCert}" 2>/dev/null`,
-          { encoding: 'utf8' }
-        ).trim();
-        console.log(`  TLS secret: ${releaseName}-nginx-tls\n` + info.split('\n').map(l => '  ' + l).join('\n'));
-      } finally {
-        try { fs.unlinkSync(tmpCert); } catch (_) {}
+        const cert = new crypto.X509Certificate(pem);
+        console.log(`  TLS secret: ${releaseName}-nginx-tls`);
+        console.log(`  subject:    ${cert.subject}`);
+        console.log(`  issuer:     ${cert.issuer}`);
+        console.log(`  valid from: ${cert.validFrom}`);
+        console.log(`  valid to:   ${cert.validTo}`);
+        console.log(`  SANs:       ${cert.subjectAltName || '(none)'}`);
+      } catch (_) {
+        console.log(`  TLS secret: ${releaseName}-nginx-tls  (could not parse cert)`);
       }
     } else {
       console.log(`  TLS secret ${releaseName}-nginx-tls: not found yet`);
