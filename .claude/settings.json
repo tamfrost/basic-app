@@ -26,7 +26,10 @@
       "Bash(sudo update-ca-trust)",
       "Bash(kubectl apply *)",
       "Bash(kubectl config *)",
-      "Bash(kubectl rollout *)"
+      "Bash(kubectl rollout *)",
+      "Bash(kubectl delete *)",
+      "Bash(openssl verify *)",
+      "Bash(openssl s_client -connect localhost:15000 -servername pebble)"
     ]
   }
 }

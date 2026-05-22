@@ -208,8 +208,7 @@ async function deployAppX509() {
   const nginxCa = ensureNginxCa();
   const acmeUrl        = nginxCa ? '-' : (process.env.ACME_DIRECTORY_URL || '-');
   const acmeIssuerName = (process.env.ACME_ISSUER_NAME && process.env.ACME_ISSUER_NAME !== '-') ? process.env.ACME_ISSUER_NAME : 'internal-ca';
-  const acmeCaBundle     = getAcmeCaBundle();
-  const acmeCaBundlePath = getAcmeCaBundlePath();
+
 
   logCertMode(nginxCa, acmeUrl);
   ensureNamespace(namespace);
@@ -225,7 +224,6 @@ async function deployAppX509() {
       `--set-file caCert="${caCertPath}" ` +
       `--set acmeDirectoryUrl="${acmeUrl}" ` +
       `--set acmeIssuerName="${acmeIssuerName}" ` +
-      (acmeCaBundlePath ? `--set-file acmeCaBundle="${acmeCaBundlePath}" ` : '') +
       (routeHost ? `--set route.host="${routeHost}" ` : '') +
       (nginxCa ? `--set-file nginxCaCert="${nginxCa.certPath}" --set-file nginxCaKey="${nginxCa.keyPath}" ` : '') +
       appConfigSetFileFlags(),
@@ -275,8 +273,7 @@ async function deployAppOAuth2() {
   const nginxCa = ensureNginxCa();
   const acmeUrl        = nginxCa ? '-' : (process.env.ACME_DIRECTORY_URL || '-');
   const acmeIssuerName = (process.env.ACME_ISSUER_NAME && process.env.ACME_ISSUER_NAME !== '-') ? process.env.ACME_ISSUER_NAME : 'internal-ca';
-  const acmeCaBundle     = getAcmeCaBundle();
-  const acmeCaBundlePath = getAcmeCaBundlePath();
+
 
   logCertMode(nginxCa, acmeUrl);
   ensureNamespace(namespace);
@@ -297,7 +294,6 @@ async function deployAppOAuth2() {
       `--set oauth2Proxy.allowedGroups="${allowedGroups.replace(/,/g, '\\,')}" ` +
       `--set acmeDirectoryUrl="${acmeUrl}" ` +
       `--set acmeIssuerName="${acmeIssuerName}" ` +
-      (acmeCaBundlePath ? `--set-file acmeCaBundle="${acmeCaBundlePath}" ` : '') +
       (routeHost ? `--set route.host="${routeHost}" ` : '') +
       (nginxCa ? `--set-file nginxCaCert="${nginxCa.certPath}" --set-file nginxCaKey="${nginxCa.keyPath}" ` : '') +
       (providerCertPath ? `--set-file oauth2Proxy.providerCaCert="${providerCertPath}" ` : '') +
@@ -390,75 +386,6 @@ function ensureNginxCa() {
   };
 }
 
-async function deployPebble() {
-  const manifestPath = path.join(__dirname, '../.k8s/pebble.yaml').replace(/\\/g, '/');
-  console.log('\nDeploying Pebble ACME test server into cert-manager namespace...');
-  try {
-    runCommand(`kubectl apply -f "${manifestPath}"`, { stdio: 'inherit' });
-    runCommand('kubectl rollout status deployment/pebble -n cert-manager --timeout=60s', { stdio: 'inherit' });
-    console.log('\nFetching Pebble CA certificate via port-forward...');
-    const ca = await fetchPebbleCa();
-    if (ca) {
-      const caPath = path.join(__dirname, '../certs/pebble-ca.pem');
-      fs.writeFileSync(caPath, ca, 'utf8');
-      console.log('✓ Pebble CA saved to certs/pebble-ca.pem');
-      console.log('\nAdd to .env:');
-      console.log('  ACME_DIRECTORY_URL=https://pebble.cert-manager.svc.cluster.local:14000/dir');
-      console.log('  ACME_ISSUER_NAME=pebble-test');
-      console.log('  ACME_CA_BUNDLE_FILE=certs/pebble-ca.pem');
-    }
-  } catch (error) {
-    console.error('\nDeploy failed:', error.message);
-  }
-}
-
-async function fetchPebbleCa() {
-  const https = require('https');
-  const { spawn } = require('child_process');
-  const pf = spawn('kubectl', ['port-forward', '-n', 'cert-manager', 'svc/pebble-management', '15000:15000'], { stdio: 'pipe' });
-  await new Promise(r => setTimeout(r, 1500));
-  try {
-    return await new Promise((resolve, reject) => {
-      const req = https.get('https://localhost:15000/roots/0', { rejectUnauthorized: false }, res => {
-        let data = '';
-        res.on('data', chunk => data += chunk);
-        res.on('end', () => resolve(data.trim()));
-      });
-      req.on('error', reject);
-      req.setTimeout(5000, () => { req.destroy(); reject(new Error('timeout')); });
-    });
-  } finally {
-    pf.kill();
-  }
-}
-
-async function deletePebble() {
-  const manifestPath = path.join(__dirname, '../.k8s/pebble.yaml').replace(/\\/g, '/');
-  console.log('\nDeleting Pebble...');
-  try {
-    runCommand(`kubectl delete -f "${manifestPath}" --ignore-not-found`, { stdio: 'inherit' });
-    console.log('✓ Pebble deleted');
-  } catch (error) {
-    console.error('\nDelete failed:', error.message);
-  }
-}
-
-function getAcmeCaBundlePath() {
-  const bundleFile = process.env.ACME_CA_BUNDLE_FILE;
-  if (!bundleFile || bundleFile === '-') return null;
-  const bundlePath = path.resolve(__dirname, '..', bundleFile).replace(/\\/g, '/');
-  if (!fs.existsSync(bundlePath)) {
-    console.warn(`⚠️  ACME_CA_BUNDLE_FILE not found: ${bundlePath}`);
-    return null;
-  }
-  return bundlePath;
-}
-
-function getAcmeCaBundle() {
-  const bundlePath = getAcmeCaBundlePath();
-  if (!bundlePath) return '';
-  return fs.readFileSync(bundlePath, 'utf8').trim();
-}
 
 function logCertMode(nginxCa, acmeUrl) {
   if (nginxCa) {
@@ -679,14 +606,12 @@ async function deployAppX509ArgoCD() {
   const nginxCa = ensureNginxCa();
   const acmeUrl        = nginxCa ? '-' : (process.env.ACME_DIRECTORY_URL || '-');
   const acmeIssuerName = (process.env.ACME_ISSUER_NAME && process.env.ACME_ISSUER_NAME !== '-') ? process.env.ACME_ISSUER_NAME : 'internal-ca';
-  const acmeCaBundle     = getAcmeCaBundle();
-  const acmeCaBundlePath = getAcmeCaBundlePath();
+
   const extraLines = [
     `appName: "${appName}"`,
     `namespace: "${namespace}"`,
     `acmeDirectoryUrl: "${acmeUrl}"`,
     `acmeIssuerName: "${acmeIssuerName}"`,
-    ...(acmeCaBundle ? [`acmeCaBundle: |`, ...acmeCaBundle.split('\n').map(l => `  ${l}`)] : []),
     ...(routeHost ? [`route:\n  host: "${routeHost}"`] : []),
   ];
   if (nginxCa) {
@@ -715,15 +640,13 @@ async function deployAppOAuth2ArgoCD() {
   const nginxCa        = ensureNginxCa();
   const acmeUrl        = nginxCa ? '-' : (process.env.ACME_DIRECTORY_URL || '-');
   const acmeIssuerName = (process.env.ACME_ISSUER_NAME && process.env.ACME_ISSUER_NAME !== '-') ? process.env.ACME_ISSUER_NAME : 'internal-ca';
-  const acmeCaBundle     = getAcmeCaBundle();
-  const acmeCaBundlePath = getAcmeCaBundlePath();
+
   const redirectUrl    = process.env.OAUTH2_REDIRECT_URL || (routeHost ? `https://${routeHost}/oauth2/callback` : '');
   const extraLines = [
     `appName: "${appName}"`,
     `namespace: "${namespace}"`,
     `acmeDirectoryUrl: "${acmeUrl}"`,
     `acmeIssuerName: "${acmeIssuerName}"`,
-    ...(acmeCaBundle ? [`acmeCaBundle: |`, ...acmeCaBundle.split('\n').map(l => `  ${l}`)] : []),
     ...(routeHost ? [`route:\n  host: "${routeHost}"`] : []),
     `oauth2Proxy:`,
     `  clientID: "${process.env.OAUTH2_CLIENT_ID || ''}"`,
@@ -834,18 +757,6 @@ async function checkKubectlContext() {
   }
 }
 
-async function pebbleMenu() {
-  const action = await select({
-    message: 'Pebble (ACME test server):',
-    choices: [
-      { name: 'Deploy', value: 'deploy' },
-      { name: 'Delete', value: 'delete' },
-      { name: 'Back',   value: 'back'   },
-    ]
-  });
-  if (action === 'deploy') await deployPebble();
-  if (action === 'delete') await deletePebble();
-}
 
 async function main() {
   console.log('=== df-sim Tool ===\n');
@@ -858,7 +769,6 @@ async function main() {
         { name: 'App', value: 'app' },
         { name: 'App (x509)', value: 'app_x509' },
         { name: 'App (oauth2)', value: 'app_oauth2' },
-        { name: 'Pebble (ACME test server)', value: 'pebble' },
         { name: 'Check kubectl context', value: 'check_context' },
         { name: 'Get GitHub variables', value: 'get_variables' },
         { name: 'Exit', value: 'exit' }
@@ -876,10 +786,6 @@ async function main() {
         break;
       case 'app_oauth2':
         await appOAuth2Menu();
-        console.log('\n');
-        break;
-      case 'pebble':
-        await pebbleMenu();
         console.log('\n');
         break;
       case 'check_context':
