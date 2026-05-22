@@ -48,3 +48,7 @@ MIIDXTCCAkWgAwIBAgIJAKL0UG+mRKuWMA0GCSqGSIb3DQEBCwUAMEUxCzAJBgNV
 
 Do not commit actual certificate files to git. This directory is for local use only.
 Add `certs/*.crt` to `.gitignore` if you want to keep certificates out of version control.
+
+One thing to verify: the solvers section in clusterissuer.yaml uses http01 with ingressClass: nginx. Depending on how your internal CA validates ownership (and whether your cluster uses a different ingress class), you may need to adjust that. If your CA skips challenge validation entirely for internal networks, the solvers block can be left empty (solvers: []).
+
+Also, cert-manager must be installed in the cluster — if it isn't yet, helm install cert-manager jetstack/cert-manager --set installCRDs=true in the cert-manager namespace is the standard one-liner.
