@@ -19,6 +19,12 @@ spec:
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           ports:
             - containerPort: {{ .Values.service.appPort }}
+          {{- if or .Values.appConfig.js .Values.appConfig.json .Values.appConfig.yaml }}
+          volumeMounts:
+            - name: app-config
+              mountPath: /app/config
+              readOnly: true
+          {{- end }}
 
         - name: oauth2-proxy
           image: {{ .Values.oauth2Proxy.image }}
@@ -85,4 +91,9 @@ spec:
         - name: provider-ca
           configMap:
             name: {{ .Values.appName }}-provider-ca
+        {{- end }}
+        {{- if or .Values.appConfig.js .Values.appConfig.json .Values.appConfig.yaml }}
+        - name: app-config
+          configMap:
+            name: {{ .Values.appName }}-config
         {{- end }}

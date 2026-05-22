@@ -19,3 +19,15 @@ spec:
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           ports:
             - containerPort: {{ .Values.service.port }}
+          {{- if or .Values.appConfig.js .Values.appConfig.json .Values.appConfig.yaml }}
+          volumeMounts:
+            - name: app-config
+              mountPath: /app/config
+              readOnly: true
+          {{- end }}
+      {{- if or .Values.appConfig.js .Values.appConfig.json .Values.appConfig.yaml }}
+      volumes:
+        - name: app-config
+          configMap:
+            name: {{ .Values.appName }}-config
+      {{- end }}

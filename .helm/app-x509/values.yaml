@@ -26,3 +26,8 @@ service:
 
 route:
   host: ""
+
+appConfig:
+  js: ""
+  json: ""
+  yaml: ""

@@ -171,7 +171,8 @@ async function deployApp() {
       `--create-namespace --namespace ${namespace} ` +
       `--set image.registry="${registry}" ` +
       `--set image.repository="${repository}" ` +
-      `--set route.enabled=true`,
+      `--set route.enabled=true ` +
+      appConfigSetFileFlags(),
       { stdio: 'inherit' }
     );
     console.log(`\n✓ ${appName} deployed`);
@@ -203,6 +204,7 @@ async function deployAppX509() {
 
   const nginxCa  = ensureNginxCa();
   const acmeUrl   = process.env.ACME_DIRECTORY_URL || '-';
+  const routeHost = process.env.ROUTE_HOST || '';
 
   console.log(`\nDeploying ${releaseName} with x509 proxy...`);
   try {
@@ -213,7 +215,9 @@ async function deployAppX509() {
       `--set image.repository="${repository}" ` +
       `--set-file caCert="${caCertPath}" ` +
       `--set acmeDirectoryUrl="${acmeUrl}" ` +
-      (nginxCa ? `--set-file nginxCaCert="${nginxCa.certPath}" --set-file nginxCaKey="${nginxCa.keyPath}" ` : ''),
+      (routeHost ? `--set route.host="${routeHost}" ` : '') +
+      (nginxCa ? `--set-file nginxCaCert="${nginxCa.certPath}" --set-file nginxCaKey="${nginxCa.keyPath}" ` : '') +
+      appConfigSetFileFlags(),
       { stdio: 'inherit' }
     );
     console.log(`\n✓ ${releaseName} deployed`);
@@ -256,6 +260,7 @@ async function deployAppOAuth2() {
 
   const nginxCa  = ensureNginxCa();
   const acmeUrl   = process.env.ACME_DIRECTORY_URL || '-';
+  const routeHost = process.env.ROUTE_HOST || '';
 
   console.log(`\nDeploying ${releaseName} with oauth2-proxy...`);
   try {
@@ -271,8 +276,10 @@ async function deployAppOAuth2() {
       `--set oauth2Proxy.redirectUrl="${redirectUrl}" ` +
       `--set oauth2Proxy.allowedGroups="${allowedGroups.replace(/,/g, '\\,')}" ` +
       `--set acmeDirectoryUrl="${acmeUrl}" ` +
+      (routeHost ? `--set route.host="${routeHost}" ` : '') +
       (nginxCa ? `--set-file nginxCaCert="${nginxCa.certPath}" --set-file nginxCaKey="${nginxCa.keyPath}" ` : '') +
-      (providerCertPath ? `--set-file oauth2Proxy.providerCaCert="${providerCertPath}"` : '');
+      (providerCertPath ? `--set-file oauth2Proxy.providerCaCert="${providerCertPath}" ` : '') +
+      appConfigSetFileFlags();
     runCommand(cmd, { stdio: 'inherit' });
     console.log(`\n✓ ${releaseName} deployed`);
     try {
@@ -291,6 +298,29 @@ async function deleteAppOAuth2() {
   try { runCommand('helm uninstall basic-app --namespace basic-app', { stdio: 'inherit' }); } catch (_) {}
   cleanupNamespace('basic-app');
   console.log('\n✓ basic-app (oauth2) deleted');
+}
+
+function appConfigSetFileFlags() {
+  const configDir = path.join(__dirname, '../app-config');
+  const files = { js: 'config.js', json: 'config.json', yaml: 'config.yaml' };
+  return Object.entries(files)
+    .filter(([, name]) => fs.existsSync(path.join(configDir, name)))
+    .map(([key, name]) => `--set-file "appConfig.${key}=${path.join(configDir, name).replace(/\\/g, '/')}"`)
+    .join(' ');
+}
+
+function appConfigExtraLines() {
+  const configDir = path.join(__dirname, '../app-config');
+  const files = { js: 'config.js', json: 'config.json', yaml: 'config.yaml' };
+  const lines = [];
+  const entries = Object.entries(files).filter(([, name]) => fs.existsSync(path.join(configDir, name)));
+  if (entries.length === 0) return lines;
+  lines.push('appConfig:');
+  for (const [key, name] of entries) {
+    lines.push(`  ${key}: |`);
+    fs.readFileSync(path.join(configDir, name), 'utf8').trimEnd().split('\n').forEach(l => lines.push(`    ${l}`));
+  }
+  return lines;
 }
 
 function ensureNginxCa() {
@@ -431,8 +461,9 @@ async function deleteArgoCD(appName) {
 
 async function deployAppArgoCD() {
   console.log('\nDeploying basic-app via Argo CD...');
+  const extraLines = appConfigExtraLines();
   try {
-    await deployArgoCD('basic-app', 'app');
+    await deployArgoCD('basic-app', 'app', extraLines.join('\n'));
     console.log('\n✓ Argo CD application created');
   } catch (error) {
     console.error('\nDeploy failed:', error.message);
@@ -445,15 +476,17 @@ async function deleteAppArgoCD() {
 
 async function deployAppX509ArgoCD() {
   console.log('\nDeploying basic-app (x509) via Argo CD...');
-  const nginxCa = ensureNginxCa();
-  const acmeUrl = process.env.ACME_DIRECTORY_URL || '-';
-  const extraLines = [`acmeDirectoryUrl: "${acmeUrl}"`];
+  const nginxCa   = ensureNginxCa();
+  const acmeUrl   = process.env.ACME_DIRECTORY_URL || '-';
+  const routeHost = process.env.ROUTE_HOST || '';
+  const extraLines = [`acmeDirectoryUrl: "${acmeUrl}"`, ...(routeHost ? [`route:\n  host: "${routeHost}"`] : [])];
   if (nginxCa) {
     extraLines.push(`nginxCaCert: |`);
     nginxCa.cert.split('\n').forEach(l => extraLines.push(`  ${l}`));
     extraLines.push(`nginxCaKey: |`);
     nginxCa.key.split('\n').forEach(l => extraLines.push(`  ${l}`));
   }
+  appConfigExtraLines().forEach(l => extraLines.push(l));
   try {
     await deployArgoCD('basic-app-x509', 'app-x509', extraLines.join('\n'));
     console.log('\n✓ Argo CD application created');
@@ -468,10 +501,12 @@ async function deleteAppX509ArgoCD() {
 
 async function deployAppOAuth2ArgoCD() {
   console.log('\nDeploying basic-app (oauth2) via Argo CD...');
-  const nginxCa = ensureNginxCa();
-  const acmeUrl = process.env.ACME_DIRECTORY_URL || '-';
+  const nginxCa   = ensureNginxCa();
+  const acmeUrl   = process.env.ACME_DIRECTORY_URL || '-';
+  const routeHost = process.env.ROUTE_HOST || '';
   const extraLines = [
     `acmeDirectoryUrl: "${acmeUrl}"`,
+    ...(routeHost ? [`route:\n  host: "${routeHost}"`] : []),
     `oauth2Proxy:`,
     `  clientID: "${process.env.OAUTH2_CLIENT_ID || ''}"`,
     `  clientSecret: "${process.env.OAUTH2_CLIENT_SECRET || ''}"`,
@@ -486,6 +521,7 @@ async function deployAppOAuth2ArgoCD() {
     extraLines.push(`nginxCaKey: |`);
     nginxCa.key.split('\n').forEach(l => extraLines.push(`  ${l}`));
   }
+  appConfigExtraLines().forEach(l => extraLines.push(l));
   try {
     await deployArgoCD('basic-app-oauth2', 'app-oauth2', extraLines.join('\n'));
     console.log('\n✓ Argo CD application created');

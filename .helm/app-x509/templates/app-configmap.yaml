@@ -1,0 +1,20 @@
+{{- if or .Values.appConfig.js .Values.appConfig.json .Values.appConfig.yaml }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Values.appName }}-config
+  namespace: {{ .Values.namespace }}
+data:
+  {{- if .Values.appConfig.js }}
+  config.js: |
+{{ .Values.appConfig.js | indent 4 }}
+  {{- end }}
+  {{- if .Values.appConfig.json }}
+  config.json: |
+{{ .Values.appConfig.json | indent 4 }}
+  {{- end }}
+  {{- if .Values.appConfig.yaml }}
+  config.yaml: |
+{{ .Values.appConfig.yaml | indent 4 }}
+  {{- end }}
+{{- end }}

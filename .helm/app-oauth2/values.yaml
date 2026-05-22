@@ -41,3 +41,8 @@ nginxCaKey: ""
 
 route:
   host: ""
+
+appConfig:
+  js: ""
+  json: ""
+  yaml: ""

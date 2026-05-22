@@ -1,0 +1,13 @@
+environment: development
+logLevel: info
+featureFlags:
+  darkMode: true
+  betaFeatures: false
+database:
+  host: db.example.com
+  port: 5432
+  name: basic_app
+api:
+  timeout: 30
+  maxRetries: 3
+  baseUrl: https://api.example.com/v1

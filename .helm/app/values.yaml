@@ -15,3 +15,8 @@ service:
 route:
   enabled: false
   host: ""
+
+appConfig:
+  js: ""
+  json: ""
+  yaml: ""
