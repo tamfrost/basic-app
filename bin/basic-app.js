@@ -416,11 +416,17 @@ function showCertStatus(namespace, releaseName) {
       { encoding: 'utf8' }
     ).trim();
     if (secret) {
-      const info = runCommand(
-        `echo "${secret}" | base64 -d | openssl x509 -noout -issuer -subject -dates 2>/dev/null`,
-        { encoding: 'utf8' }
-      ).trim();
-      console.log(`  TLS secret: ${releaseName}-nginx-tls\n` + info.split('\n').map(l => '  ' + l).join('\n'));
+      const tmpCert = path.join(__dirname, '../.tmp-tls-cert.pem');
+      fs.writeFileSync(tmpCert, Buffer.from(secret, 'base64').toString('utf8'));
+      try {
+        const info = runCommand(
+          `openssl x509 -noout -issuer -subject -dates -in "${tmpCert}" 2>/dev/null`,
+          { encoding: 'utf8' }
+        ).trim();
+        console.log(`  TLS secret: ${releaseName}-nginx-tls\n` + info.split('\n').map(l => '  ' + l).join('\n'));
+      } finally {
+        try { fs.unlinkSync(tmpCert); } catch (_) {}
+      }
     } else {
       console.log(`  TLS secret ${releaseName}-nginx-tls: not found yet`);
     }
