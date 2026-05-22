@@ -81,8 +81,10 @@ jobs:
             perl -i -pe "s/^version:.*/version: $VERSION/" "$chart"
             perl -i -pe "s/^appVersion:.*/appVersion: \"$VERSION\"/" "$chart"
           done
+          ACME_URL="${{ vars.ACME_DIRECTORY_URL || '-' }}"
           for values in .helm/*/values.yaml; do
             perl -i -pe "s/tag: \".*\"/tag: \"$SHORT_SHA\"/" "$values"
+            perl -i -pe "s|acmeDirectoryUrl:.*|acmeDirectoryUrl: \"$ACME_URL\"|" "$values"
           done
 
       - name: Checkout infra repository
