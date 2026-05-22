@@ -1,0 +1,6 @@
+apiVersion: v2
+name: df-sim-argocd
+description: ArgoCD application and repository secret for df-sim
+type: application
+version: 1.0.0
+appVersion: "1.0"

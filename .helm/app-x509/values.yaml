@@ -17,6 +17,9 @@ caCert: ""
 acmeDirectoryUrl: ""
 acmeIssuerName: "internal-ca"
 
+nginxCaCert: ""
+nginxCaKey: ""
+
 service:
   port: 3000
   nginxPort: 8443

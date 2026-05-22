@@ -36,5 +36,8 @@ oauth2Proxy:
 acmeDirectoryUrl: ""
 acmeIssuerName: "internal-ca"
 
+nginxCaCert: ""
+nginxCaKey: ""
+
 route:
   host: ""

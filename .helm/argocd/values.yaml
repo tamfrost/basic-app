@@ -1,0 +1,3 @@
+# All values must be provided via --set when running helm template
+# No default values - helm will fail if required values are missing
+

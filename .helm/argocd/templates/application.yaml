@@ -1,0 +1,42 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: {{ .Values.appName }}
+  namespace: {{ .Values.argoCDNamespace }}
+spec:
+  project: default
+  
+  source:
+    repoURL: {{ .Values.source.repoURL }}
+    targetRevision: {{ .Values.source.targetRevision }}
+    path: {{ .Values.source.path }}
+    helm:
+      valueFiles:
+        - values.yaml
+      {{- if .Values.extraValues }}
+      values: |
+{{ .Values.extraValues | indent 8 }}
+      {{- end }}
+      parameters:
+        - name: image.registry
+          value: {{ .Values.image.registry }}
+        - name: image.repository
+          value: {{ .Values.image.repository }}
+  
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: {{ .Values.targetNamespace }}
+  
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+      allowEmpty: false
+    syncOptions:
+      - CreateNamespace=true
+    retry:
+      limit: 5
+      backoff:
+        duration: 5s
+        factor: 2
+        maxDuration: 3m
