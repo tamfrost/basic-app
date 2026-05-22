@@ -158,20 +158,23 @@ async function getGitHubVariables() {
 }
 
 async function deployApp() {
-  const registry = process.env.CONTAINER_REGISTRY || 'ghcr.io';
-  const repository = process.env.CONTAINER_REPOSITORY || 'tamfrost/basic-app';
-  const chartPath = path.join(__dirname, '../.helm/app');
-  const appName = 'basic-app';
-  const namespace = 'basic-app';
+  const registry   = process.env.CONTAINER_REGISTRY    || 'ghcr.io';
+  const repository = process.env.CONTAINER_REPOSITORY  || 'tamfrost/basic-app';
+  const chartPath  = path.join(__dirname, '../.helm/app');
+  const { name: appName, namespace, routeHost } = getAppConfig();
 
-  console.log(`\nDeploying ${appName} from ${registry}/${repository}...`);
+  ensureNamespace(namespace);
+  console.log(`\nDeploying ${appName} to ${namespace}...`);
   try {
     runCommand(
       `helm upgrade --install ${appName} "${chartPath}" ` +
       `--create-namespace --namespace ${namespace} ` +
+      `--set appName="${appName}" ` +
+      `--set namespace="${namespace}" ` +
       `--set image.registry="${registry}" ` +
       `--set image.repository="${repository}" ` +
       `--set route.enabled=true ` +
+      (routeHost ? `--set route.host="${routeHost}" ` : '') +
       appConfigSetFileFlags(),
       { stdio: 'inherit' }
     );
@@ -186,31 +189,33 @@ async function deployApp() {
 }
 
 async function deleteApp() {
-  const ok = await confirm({ message: 'Delete basic-app from namespace basic-app?', default: false });
+  const { name: appName, namespace } = getAppConfig();
+  const ok = await confirm({ message: `Delete ${appName} from namespace ${namespace}?`, default: false });
   if (!ok) { console.log('Cancelled.'); return; }
-  silentlyRemoveArgoCDApp('basic-app');
-  try { runCommand('helm uninstall basic-app --namespace basic-app', { stdio: 'inherit' }); } catch (_) {}
-  cleanupNamespace('basic-app');
-  console.log('\n✓ basic-app deleted');
+  silentlyRemoveArgoCDApp(appName);
+  try { runCommand(`helm uninstall ${appName} --namespace ${namespace}`, { stdio: 'inherit' }); } catch (_) {}
+  cleanupNamespace(namespace);
+  console.log(`\n✓ ${appName} deleted`);
 }
 
 async function deployAppX509() {
-  const registry = process.env.CONTAINER_REGISTRY || 'ghcr.io';
+  const registry   = process.env.CONTAINER_REGISTRY   || 'ghcr.io';
   const repository = process.env.CONTAINER_REPOSITORY || 'tamfrost/basic-app';
-  const chartPath = path.join(__dirname, '../.helm/app-x509');
+  const chartPath  = path.join(__dirname, '../.helm/app-x509');
   const caCertPath = path.resolve(__dirname, '..', process.env.CLIENT_CERT_FILE || 'certs/client/ca-cert.pem').replace(/\\/g, '/');
-  const releaseName = 'basic-app';
-  const namespace = 'basic-app';
+  const { name: releaseName, namespace, routeHost } = getAppConfig();
 
-  const nginxCa  = ensureNginxCa();
-  const acmeUrl   = process.env.ACME_DIRECTORY_URL || '-';
-  const routeHost = process.env.ROUTE_HOST || '';
+  const nginxCa = ensureNginxCa();
+  const acmeUrl = process.env.ACME_DIRECTORY_URL || '-';
 
-  console.log(`\nDeploying ${releaseName} with x509 proxy...`);
+  ensureNamespace(namespace);
+  console.log(`\nDeploying ${releaseName} (x509) to ${namespace}...`);
   try {
     runCommand(
       `helm upgrade --install ${releaseName} "${chartPath}" ` +
       `--create-namespace --namespace ${namespace} ` +
+      `--set appName="${releaseName}" ` +
+      `--set namespace="${namespace}" ` +
       `--set image.registry="${registry}" ` +
       `--set image.repository="${repository}" ` +
       `--set-file caCert="${caCertPath}" ` +
@@ -231,26 +236,26 @@ async function deployAppX509() {
 }
 
 async function deleteAppX509() {
-  const ok = await confirm({ message: 'Delete basic-app (x509) from namespace basic-app?', default: false });
+  const { name: appName, namespace } = getAppConfig();
+  const ok = await confirm({ message: `Delete ${appName} (x509) from namespace ${namespace}?`, default: false });
   if (!ok) { console.log('Cancelled.'); return; }
-  silentlyRemoveArgoCDApp('basic-app-x509');
-  try { runCommand('helm uninstall basic-app --namespace basic-app', { stdio: 'inherit' }); } catch (_) {}
-  cleanupNamespace('basic-app');
-  console.log('\n✓ basic-app (x509) deleted');
+  silentlyRemoveArgoCDApp(`${appName}-x509`);
+  try { runCommand(`helm uninstall ${appName} --namespace ${namespace}`, { stdio: 'inherit' }); } catch (_) {}
+  cleanupNamespace(namespace);
+  console.log(`\n✓ ${appName} (x509) deleted`);
 }
 
 async function deployAppOAuth2() {
-  const registry   = process.env.CONTAINER_REGISTRY || 'ghcr.io';
+  const registry   = process.env.CONTAINER_REGISTRY   || 'ghcr.io';
   const repository = process.env.CONTAINER_REPOSITORY || 'tamfrost/basic-app';
   const chartPath  = path.join(__dirname, '../.helm/app-oauth2');
-  const releaseName = 'basic-app';
-  const namespace   = 'basic-app';
+  const { name: releaseName, namespace, routeHost } = getAppConfig();
 
   const clientID      = process.env.OAUTH2_CLIENT_ID       || '';
   const clientSecret  = process.env.OAUTH2_CLIENT_SECRET   || '';
   const cookieSecret  = process.env.OAUTH2_COOKIE_SECRET   || '';
   const issuerUrl     = process.env.OAUTH2_OIDC_ISSUER_URL || '';
-  const redirectUrl   = process.env.OAUTH2_REDIRECT_URL    || '';
+  const redirectUrl   = process.env.OAUTH2_REDIRECT_URL    || (routeHost ? `https://${routeHost}/oauth2/callback` : '');
   const allowedGroups = process.env.OAUTH2_ALLOWED_GROUPS  || '-';
 
   const providerCertFile = process.env.PROVIDER_CERT_FILE;
@@ -258,15 +263,17 @@ async function deployAppOAuth2() {
     ? path.resolve(__dirname, '..', providerCertFile).replace(/\\/g, '/')
     : null;
 
-  const nginxCa  = ensureNginxCa();
-  const acmeUrl   = process.env.ACME_DIRECTORY_URL || '-';
-  const routeHost = process.env.ROUTE_HOST || '';
+  const nginxCa = ensureNginxCa();
+  const acmeUrl = process.env.ACME_DIRECTORY_URL || '-';
 
-  console.log(`\nDeploying ${releaseName} with oauth2-proxy...`);
+  ensureNamespace(namespace);
+  console.log(`\nDeploying ${releaseName} (oauth2) to ${namespace}...`);
   try {
     const cmd =
       `helm upgrade --install ${releaseName} "${chartPath}" ` +
       `--create-namespace --namespace ${namespace} ` +
+      `--set appName="${releaseName}" ` +
+      `--set namespace="${namespace}" ` +
       `--set image.registry="${registry}" ` +
       `--set image.repository="${repository}" ` +
       `--set oauth2Proxy.clientID="${clientID}" ` +
@@ -292,12 +299,30 @@ async function deployAppOAuth2() {
 }
 
 async function deleteAppOAuth2() {
-  const ok = await confirm({ message: 'Delete basic-app (oauth2) from namespace basic-app?', default: false });
+  const { name: appName, namespace } = getAppConfig();
+  const ok = await confirm({ message: `Delete ${appName} (oauth2) from namespace ${namespace}?`, default: false });
   if (!ok) { console.log('Cancelled.'); return; }
-  silentlyRemoveArgoCDApp('basic-app-oauth2');
-  try { runCommand('helm uninstall basic-app --namespace basic-app', { stdio: 'inherit' }); } catch (_) {}
-  cleanupNamespace('basic-app');
-  console.log('\n✓ basic-app (oauth2) deleted');
+  silentlyRemoveArgoCDApp(`${appName}-oauth2`);
+  try { runCommand(`helm uninstall ${appName} --namespace ${namespace}`, { stdio: 'inherit' }); } catch (_) {}
+  cleanupNamespace(namespace);
+  console.log(`\n✓ ${appName} (oauth2) deleted`);
+}
+
+function getAppConfig() {
+  const name      = process.env.APP_NAME      || 'basic-app';
+  const namespace = process.env.APP_NAMESPACE || name;
+  const domain    = process.env.ROUTE_HOST_DOMAIN || '';
+  const routeHost = domain ? `${name}-${namespace}.${domain}` : '';
+  return { name, namespace, routeHost };
+}
+
+function ensureNamespace(namespace) {
+  try {
+    runCommand(
+      `kubectl create namespace ${namespace} --dry-run=client -o yaml | kubectl apply -f -`,
+      { stdio: 'pipe' }
+    );
+  } catch (_) {}
 }
 
 function appConfigSetFileFlags() {
@@ -364,6 +389,7 @@ async function deployArgoCD(appName, chartSubPath, extraValues = '') {
   const appId          = process.env.GITHUB_APP_ID;
   const installationId = process.env.GITHUB_APP_INSTALLATION_ID;
   const privateKey     = getGitHubAppPrivateKey();
+  const { namespace }  = getAppConfig();
 
   const tmpKeyFile = path.join(__dirname, '../.tmp-gh-app-key.pem');
   fs.writeFileSync(tmpKeyFile, privateKey, 'utf8');
@@ -373,8 +399,9 @@ async function deployArgoCD(appName, chartSubPath, extraValues = '') {
   if (tmpValuesFile) fs.writeFileSync(tmpValuesFile, extraValues, 'utf8');
   const tmpValuesFilePosix = tmpValuesFile ? tmpValuesFile.replace(/\\/g, '/') : null;
 
+  ensureNamespace(namespace);
   try {
-    runCommand(`kubectl label namespace basic-app argocd.argoproj.io/managed-by=${argoCDNS} --overwrite`, { stdio: 'inherit' });
+    runCommand(`kubectl label namespace ${namespace} argocd.argoproj.io/managed-by=${argoCDNS} --overwrite`, { stdio: 'inherit' });
   } catch (_) {}
 
   try {
@@ -386,7 +413,7 @@ async function deployArgoCD(appName, chartSubPath, extraValues = '') {
       `helm template ${appName} "${chartPath}" ` +
       `--set appName="${appName}" ` +
       `--set argoCDNamespace="${argoCDNS}" ` +
-      `--set targetNamespace="basic-app" ` +
+      `--set targetNamespace="${namespace}" ` +
       `--set repository.url="${infraRepo}" ` +
       `--set repository.githubAppID="${appId}" ` +
       `--set repository.githubAppInstallationID="${installationId}" ` +
@@ -455,15 +482,16 @@ async function deleteArgoCD(appName) {
   } catch (_) {}
 
   runCommand(`kubectl delete application ${appName} -n ${argoCDNS} --ignore-not-found`, { stdio: 'inherit' });
-  cleanupNamespace('basic-app');
+  cleanupNamespace(getAppConfig().namespace);
   console.log('\n✓ Argo CD application and resources deleted');
 }
 
 async function deployAppArgoCD() {
-  console.log('\nDeploying basic-app via Argo CD...');
-  const extraLines = appConfigExtraLines();
+  const { name: appName, namespace } = getAppConfig();
+  console.log(`\nDeploying ${appName} via Argo CD...`);
+  const extraLines = [`appName: "${appName}"`, `namespace: "${namespace}"`, ...appConfigExtraLines()];
   try {
-    await deployArgoCD('basic-app', 'app', extraLines.join('\n'));
+    await deployArgoCD(appName, 'app', extraLines.join('\n'));
     console.log('\n✓ Argo CD application created');
   } catch (error) {
     console.error('\nDeploy failed:', error.message);
@@ -471,15 +499,21 @@ async function deployAppArgoCD() {
 }
 
 async function deleteAppArgoCD() {
-  try { await deleteArgoCD('basic-app'); } catch (error) { console.error('\nDelete failed:', error.message); }
+  const { name: appName } = getAppConfig();
+  try { await deleteArgoCD(appName); } catch (error) { console.error('\nDelete failed:', error.message); }
 }
 
 async function deployAppX509ArgoCD() {
-  console.log('\nDeploying basic-app (x509) via Argo CD...');
-  const nginxCa   = ensureNginxCa();
-  const acmeUrl   = process.env.ACME_DIRECTORY_URL || '-';
-  const routeHost = process.env.ROUTE_HOST || '';
-  const extraLines = [`acmeDirectoryUrl: "${acmeUrl}"`, ...(routeHost ? [`route:\n  host: "${routeHost}"`] : [])];
+  const { name: appName, namespace, routeHost } = getAppConfig();
+  console.log(`\nDeploying ${appName} (x509) via Argo CD...`);
+  const nginxCa = ensureNginxCa();
+  const acmeUrl = process.env.ACME_DIRECTORY_URL || '-';
+  const extraLines = [
+    `appName: "${appName}"`,
+    `namespace: "${namespace}"`,
+    `acmeDirectoryUrl: "${acmeUrl}"`,
+    ...(routeHost ? [`route:\n  host: "${routeHost}"`] : []),
+  ];
   if (nginxCa) {
     extraLines.push(`nginxCaCert: |`);
     nginxCa.cert.split('\n').forEach(l => extraLines.push(`  ${l}`));
@@ -488,7 +522,7 @@ async function deployAppX509ArgoCD() {
   }
   appConfigExtraLines().forEach(l => extraLines.push(l));
   try {
-    await deployArgoCD('basic-app-x509', 'app-x509', extraLines.join('\n'));
+    await deployArgoCD(`${appName}-x509`, 'app-x509', extraLines.join('\n'));
     console.log('\n✓ Argo CD application created');
   } catch (error) {
     console.error('\nDeploy failed:', error.message);
@@ -496,15 +530,19 @@ async function deployAppX509ArgoCD() {
 }
 
 async function deleteAppX509ArgoCD() {
-  try { await deleteArgoCD('basic-app-x509'); } catch (error) { console.error('\nDelete failed:', error.message); }
+  const { name: appName } = getAppConfig();
+  try { await deleteArgoCD(`${appName}-x509`); } catch (error) { console.error('\nDelete failed:', error.message); }
 }
 
 async function deployAppOAuth2ArgoCD() {
-  console.log('\nDeploying basic-app (oauth2) via Argo CD...');
-  const nginxCa   = ensureNginxCa();
-  const acmeUrl   = process.env.ACME_DIRECTORY_URL || '-';
-  const routeHost = process.env.ROUTE_HOST || '';
+  const { name: appName, namespace, routeHost } = getAppConfig();
+  console.log(`\nDeploying ${appName} (oauth2) via Argo CD...`);
+  const nginxCa     = ensureNginxCa();
+  const acmeUrl     = process.env.ACME_DIRECTORY_URL || '-';
+  const redirectUrl = process.env.OAUTH2_REDIRECT_URL || (routeHost ? `https://${routeHost}/oauth2/callback` : '');
   const extraLines = [
+    `appName: "${appName}"`,
+    `namespace: "${namespace}"`,
     `acmeDirectoryUrl: "${acmeUrl}"`,
     ...(routeHost ? [`route:\n  host: "${routeHost}"`] : []),
     `oauth2Proxy:`,
@@ -512,7 +550,7 @@ async function deployAppOAuth2ArgoCD() {
     `  clientSecret: "${process.env.OAUTH2_CLIENT_SECRET || ''}"`,
     `  cookieSecret: "${process.env.OAUTH2_COOKIE_SECRET || ''}"`,
     `  oidcIssuerUrl: "${process.env.OAUTH2_OIDC_ISSUER_URL || ''}"`,
-    `  redirectUrl: "${process.env.OAUTH2_REDIRECT_URL || ''}"`,
+    `  redirectUrl: "${redirectUrl}"`,
     `  allowedGroups: "${process.env.OAUTH2_ALLOWED_GROUPS || '-'}"`,
   ];
   if (nginxCa) {
@@ -523,7 +561,7 @@ async function deployAppOAuth2ArgoCD() {
   }
   appConfigExtraLines().forEach(l => extraLines.push(l));
   try {
-    await deployArgoCD('basic-app-oauth2', 'app-oauth2', extraLines.join('\n'));
+    await deployArgoCD(`${appName}-oauth2`, 'app-oauth2', extraLines.join('\n'));
     console.log('\n✓ Argo CD application created');
   } catch (error) {
     console.error('\nDeploy failed:', error.message);
@@ -531,7 +569,8 @@ async function deployAppOAuth2ArgoCD() {
 }
 
 async function deleteAppOAuth2ArgoCD() {
-  try { await deleteArgoCD('basic-app-oauth2'); } catch (error) { console.error('\nDelete failed:', error.message); }
+  const { name: appName } = getAppConfig();
+  try { await deleteArgoCD(`${appName}-oauth2`); } catch (error) { console.error('\nDelete failed:', error.message); }
 }
 
 async function appOAuth2Menu() {

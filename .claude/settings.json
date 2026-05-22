@@ -15,7 +15,12 @@
       "Bash(openssl x509 *)",
       "Bash(openssl pkcs12 *)",
       "Bash(find /home/ruser/projects/fra -name \"nginx.conf\" -o -name \"*nginx*configmap*\" 2>/dev/null | grep -v basic-app)",
-      "Read(//home/ruser/projects/fra/**)"
+      "Read(//home/ruser/projects/fra/**)",
+      "PowerShell(Resolve-DnsName api.crc.testing 2>&1)",
+      "PowerShell(Resolve-DnsName apps-crc.testing 2>&1)",
+      "PowerShell(Get-Content \"C:\\\\Windows\\\\System32\\\\drivers\\\\etc\\\\hosts\" | Where-Object { $_ -notmatch '^#' -and $_.Trim\\(\\) -ne '' })",
+      "PowerShell(Get-Process | Where-Object { $_.Name -match 'crc|dns' } | Select-Object Name, Id)",
+      "PowerShell(Get-Service | Where-Object { $_.Name -match 'crc' } | Select-Object Name, Status, DisplayName)"
     ]
   }
 }
