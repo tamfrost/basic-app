@@ -20,7 +20,10 @@
       "PowerShell(Resolve-DnsName apps-crc.testing 2>&1)",
       "PowerShell(Get-Content \"C:\\\\Windows\\\\System32\\\\drivers\\\\etc\\\\hosts\" | Where-Object { $_ -notmatch '^#' -and $_.Trim\\(\\) -ne '' })",
       "PowerShell(Get-Process | Where-Object { $_.Name -match 'crc|dns' } | Select-Object Name, Id)",
-      "PowerShell(Get-Service | Where-Object { $_.Name -match 'crc' } | Select-Object Name, Status, DisplayName)"
+      "PowerShell(Get-Service | Where-Object { $_.Name -match 'crc' } | Select-Object Name, Status, DisplayName)",
+      "Bash(kubectl patch *)",
+      "Bash(sudo cp /home/ruser/projects/fra/basic-app/certs/ca-root/CRC-root-ca.crt /etc/pki/ca-trust/source/anchors/CRC-root-ca.crt)",
+      "Bash(sudo update-ca-trust)"
     ]
   }
 }

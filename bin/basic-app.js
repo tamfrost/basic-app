@@ -206,7 +206,7 @@ async function deployAppX509() {
   const { name: releaseName, namespace, routeHost } = getAppConfig();
 
   const nginxCa = ensureNginxCa();
-  const acmeUrl = process.env.ACME_DIRECTORY_URL || '-';
+  const acmeUrl = nginxCa ? '-' : (process.env.ACME_DIRECTORY_URL || '-');
 
   ensureNamespace(namespace);
   console.log(`\nDeploying ${releaseName} (x509) to ${namespace}...`);
@@ -264,7 +264,7 @@ async function deployAppOAuth2() {
     : null;
 
   const nginxCa = ensureNginxCa();
-  const acmeUrl = process.env.ACME_DIRECTORY_URL || '-';
+  const acmeUrl = nginxCa ? '-' : (process.env.ACME_DIRECTORY_URL || '-');
 
   ensureNamespace(namespace);
   console.log(`\nDeploying ${releaseName} (oauth2) to ${namespace}...`);
@@ -509,7 +509,7 @@ async function deployAppX509ArgoCD() {
   const { name: appName, namespace, routeHost } = getAppConfig();
   console.log(`\nDeploying ${appName} (x509) via Argo CD...`);
   const nginxCa = ensureNginxCa();
-  const acmeUrl = process.env.ACME_DIRECTORY_URL || '-';
+  const acmeUrl = nginxCa ? '-' : (process.env.ACME_DIRECTORY_URL || '-');
   const extraLines = [
     `appName: "${appName}"`,
     `namespace: "${namespace}"`,
@@ -540,7 +540,7 @@ async function deployAppOAuth2ArgoCD() {
   const { name: appName, namespace, routeHost } = getAppConfig();
   console.log(`\nDeploying ${appName} (oauth2) via Argo CD...`);
   const nginxCa     = ensureNginxCa();
-  const acmeUrl     = process.env.ACME_DIRECTORY_URL || '-';
+  const acmeUrl     = nginxCa ? '-' : (process.env.ACME_DIRECTORY_URL || '-');
   const redirectUrl = process.env.OAUTH2_REDIRECT_URL || (routeHost ? `https://${routeHost}/oauth2/callback` : '');
   const extraLines = [
     `appName: "${appName}"`,
