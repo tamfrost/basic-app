@@ -312,7 +312,9 @@ function getAppConfig() {
   const name      = process.env.APP_NAME      || 'basic-app';
   const namespace = process.env.APP_NAMESPACE || name;
   const domain    = process.env.ROUTE_HOST_DOMAIN || '';
-  const routeHost = domain ? `${name}-${namespace}.${domain}` : '';
+  const address   = process.env.APP_ADDRESS;
+  const host      = (address && address !== '-') ? address : `${name}-${namespace}`;
+  const routeHost = domain ? `${host}.${domain}` : '';
   return { name, namespace, routeHost };
 }
 
