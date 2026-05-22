@@ -208,6 +208,7 @@ async function deployAppX509() {
   const nginxCa = ensureNginxCa();
   const acmeUrl = nginxCa ? '-' : (process.env.ACME_DIRECTORY_URL || '-');
 
+  logCertMode(nginxCa, acmeUrl);
   ensureNamespace(namespace);
   console.log(`\nDeploying ${releaseName} (x509) to ${namespace}...`);
   try {
@@ -226,12 +227,14 @@ async function deployAppX509() {
       { stdio: 'inherit' }
     );
     console.log(`\n✓ ${releaseName} deployed`);
+    showCertStatus(namespace, releaseName);
     try {
       const route = runCommand(`kubectl get route ${releaseName} -n ${namespace} -o jsonpath="{.spec.host}" 2>/dev/null`, { encoding: 'utf8' }).trim();
       if (route) console.log(`🌐 https://${route}  (requires client cert)`);
     } catch (_) {}
   } catch (error) {
     console.error('\nDeploy failed:', error.message);
+    showCertStatus(namespace, releaseName);
   }
 }
 
@@ -266,6 +269,7 @@ async function deployAppOAuth2() {
   const nginxCa = ensureNginxCa();
   const acmeUrl = nginxCa ? '-' : (process.env.ACME_DIRECTORY_URL || '-');
 
+  logCertMode(nginxCa, acmeUrl);
   ensureNamespace(namespace);
   console.log(`\nDeploying ${releaseName} (oauth2) to ${namespace}...`);
   try {
@@ -289,12 +293,14 @@ async function deployAppOAuth2() {
       appConfigSetFileFlags();
     runCommand(cmd, { stdio: 'inherit' });
     console.log(`\n✓ ${releaseName} deployed`);
+    showCertStatus(namespace, releaseName);
     try {
       const route = runCommand(`kubectl get route ${releaseName} -n ${namespace} -o jsonpath="{.spec.host}" 2>/dev/null`, { encoding: 'utf8' }).trim();
       if (route) console.log(`🌐 https://${route}  (x509 + oauth2)`);
     } catch (_) {}
   } catch (error) {
     console.error('\nDeploy failed:', error.message);
+    showCertStatus(namespace, releaseName);
   }
 }
 
@@ -370,6 +376,54 @@ function ensureNginxCa() {
     cert: fs.readFileSync(certPath, 'utf8').trim(),
     key:  fs.readFileSync(keyPath,  'utf8').trim(),
   };
+}
+
+function logCertMode(nginxCa, acmeUrl) {
+  if (nginxCa) {
+    console.log(`\n📋 TLS mode: local CA  (${nginxCa.certPath})`);
+    return;
+  }
+  if (acmeUrl && acmeUrl !== '-') {
+    console.log(`\n📋 TLS mode: cert-manager / ACME  (${acmeUrl})`);
+    try {
+      runCommand('kubectl get crd certificates.cert-manager.io 2>/dev/null', { stdio: 'pipe' });
+      console.log('   cert-manager: ✓ CRDs present');
+    } catch (_) {
+      console.warn('   cert-manager: ✗ CRDs NOT found — deploy will fail');
+      console.warn('   Install cert-manager or set CA_ROOT_CERT_FILE / CA_ROOT_CERT_KEY to use a local CA instead');
+    }
+    try {
+      const issuers = runCommand('kubectl get clusterissuer 2>/dev/null', { encoding: 'utf8' }).trim();
+      if (issuers) { console.log('   ClusterIssuers:\n' + issuers.split('\n').map(l => '     ' + l).join('\n')); }
+    } catch (_) {}
+  } else {
+    console.log('\n📋 TLS mode: self-signed (fallback)');
+  }
+}
+
+function showCertStatus(namespace, releaseName) {
+  console.log('\n--- Certificate status ---');
+  try {
+    const certs = runCommand(`kubectl get certificate,certificaterequest -n ${namespace} 2>/dev/null`, { encoding: 'utf8' }).trim();
+    console.log(certs || '  (none)');
+  } catch (_) { console.log('  (unable to query)'); }
+
+  try {
+    const secret = runCommand(
+      `kubectl get secret ${releaseName}-nginx-tls -n ${namespace} -o jsonpath="{.data['tls\\.crt']}" 2>/dev/null`,
+      { encoding: 'utf8' }
+    ).trim();
+    if (secret) {
+      const info = runCommand(
+        `echo "${secret}" | base64 -d | openssl x509 -noout -issuer -subject -dates 2>/dev/null`,
+        { encoding: 'utf8' }
+      ).trim();
+      console.log(`  TLS secret: ${releaseName}-nginx-tls\n` + info.split('\n').map(l => '  ' + l).join('\n'));
+    } else {
+      console.log(`  TLS secret ${releaseName}-nginx-tls: not found yet`);
+    }
+  } catch (_) {}
+  console.log('--------------------------');
 }
 
 function getGitHubAppPrivateKey() {
