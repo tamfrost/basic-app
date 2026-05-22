@@ -23,7 +23,10 @@
       "PowerShell(Get-Service | Where-Object { $_.Name -match 'crc' } | Select-Object Name, Status, DisplayName)",
       "Bash(kubectl patch *)",
       "Bash(sudo cp /home/ruser/projects/fra/basic-app/certs/ca-root/CRC-root-ca.crt /etc/pki/ca-trust/source/anchors/CRC-root-ca.crt)",
-      "Bash(sudo update-ca-trust)"
+      "Bash(sudo update-ca-trust)",
+      "Bash(kubectl apply *)",
+      "Bash(kubectl config *)",
+      "Bash(kubectl rollout *)"
     ]
   }
 }

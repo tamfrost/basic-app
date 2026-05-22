@@ -7,6 +7,9 @@ metadata:
 spec:
   acme:
     server: {{ .Values.acmeDirectoryUrl }}
+    {{- if .Values.acmeCaBundle }}
+    caBundle: {{ .Values.acmeCaBundle | b64enc }}
+    {{- end }}
     privateKeySecretRef:
       name: {{ .Values.acmeIssuerName }}-acme-key
     solvers:
