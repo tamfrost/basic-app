@@ -32,7 +32,7 @@ jobs:
           if echo "${{ github.event.head_commit.message }}" | grep -qF '[run on mac]'; then
             echo 'runner=["self-hosted", "macOS"]' >> $GITHUB_OUTPUT
           else
-            echo 'runner=["self-hosted"]' >> $GITHUB_OUTPUT
+            echo 'runner=["self-hosted", "Linux"]' >> $GITHUB_OUTPUT
           fi
 
   build-and-push:
