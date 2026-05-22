@@ -21,8 +21,23 @@ env:
   HELM_CHART_PATH: ${{ vars.HELM_CHART_PATH }}
 
 jobs:
+  determine-runner:
+    runs-on: ubuntu-latest
+    outputs:
+      runner: ${{ steps.set.outputs.runner }}
+    steps:
+      - name: Pick runner
+        id: set
+        run: |
+          if echo "${{ github.event.head_commit.message }}" | grep -qF '[run on mac]'; then
+            echo "runner=macos-latest" >> $GITHUB_OUTPUT
+          else
+            echo "runner=self-hosted" >> $GITHUB_OUTPUT
+          fi
+
   build-and-push:
-    runs-on: self-hosted
+    needs: determine-runner
+    runs-on: ${{ needs.determine-runner.outputs.runner }}
     permissions:
       contents: read
       packages: write
@@ -63,11 +78,11 @@ jobs:
           SHORT_SHA="${{ steps.sha.outputs.short }}"
           VERSION="${{ steps.version.outputs.version }}"
           for chart in .helm/*/Chart.yaml; do
-            sed -i "s/^version:.*/version: $VERSION/" "$chart"
-            sed -i "s/^appVersion:.*/appVersion: \"$VERSION\"/" "$chart"
+            perl -i -pe "s/^version:.*/version: $VERSION/" "$chart"
+            perl -i -pe "s/^appVersion:.*/appVersion: \"$VERSION\"/" "$chart"
           done
           for values in .helm/*/values.yaml; do
-            sed -i "s/tag: \".*\"/tag: \"$SHORT_SHA\"/" "$values"
+            perl -i -pe "s/tag: \".*\"/tag: \"$SHORT_SHA\"/" "$values"
           done
 
       - name: Checkout infra repository
