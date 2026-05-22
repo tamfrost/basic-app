@@ -205,13 +205,23 @@ async function deployAppX509() {
   const caCertPath = path.resolve(__dirname, '..', process.env.CLIENT_CERT_FILE || 'certs/client/ca-cert.pem').replace(/\\/g, '/');
   const { name: releaseName, namespace, routeHost } = getAppConfig();
 
-  const nginxCa = ensureNginxCa();
-  const acmeUrl        = nginxCa ? '-' : (process.env.ACME_DIRECTORY_URL || '-');
+  const nginxTlsDirect = ensureNginxTlsDirect();
+  const nginxCa = nginxTlsDirect ? null : ensureNginxCa();
+  const acmeUrl        = (nginxTlsDirect || nginxCa) ? '-' : (process.env.ACME_DIRECTORY_URL || '-');
   const acmeIssuerName = (process.env.ACME_ISSUER_NAME && process.env.ACME_ISSUER_NAME !== '-') ? process.env.ACME_ISSUER_NAME : 'internal-ca';
 
-
-  logCertMode(nginxCa, acmeUrl);
+  logCertMode(nginxCa, acmeUrl, nginxTlsDirect);
   ensureNamespace(namespace);
+  const tlsSecretName = `${releaseName}-nginx-tls`;
+  if (nginxTlsDirect) {
+    console.log(`\nCreating TLS secret from ${process.env.NGINX_TLS_CERT_FILE}...`);
+    runCommand(
+      `kubectl create secret tls ${tlsSecretName} --cert="${nginxTlsDirect.certPath}" --key="${nginxTlsDirect.keyPath}" ` +
+      `-n ${namespace} --dry-run=client -o yaml | kubectl apply -f -`,
+      { stdio: 'inherit' }
+    );
+  }
+  adoptHelmSecret(tlsSecretName, namespace, releaseName);
   console.log(`\nDeploying ${releaseName} (x509) to ${namespace}...`);
   try {
     runCommand(
@@ -270,13 +280,23 @@ async function deployAppOAuth2() {
     ? path.resolve(__dirname, '..', providerCertFile).replace(/\\/g, '/')
     : null;
 
-  const nginxCa = ensureNginxCa();
-  const acmeUrl        = nginxCa ? '-' : (process.env.ACME_DIRECTORY_URL || '-');
+  const nginxTlsDirect = ensureNginxTlsDirect();
+  const nginxCa        = nginxTlsDirect ? null : ensureNginxCa();
+  const acmeUrl        = (nginxTlsDirect || nginxCa) ? '-' : (process.env.ACME_DIRECTORY_URL || '-');
   const acmeIssuerName = (process.env.ACME_ISSUER_NAME && process.env.ACME_ISSUER_NAME !== '-') ? process.env.ACME_ISSUER_NAME : 'internal-ca';
 
-
-  logCertMode(nginxCa, acmeUrl);
+  logCertMode(nginxCa, acmeUrl, nginxTlsDirect);
   ensureNamespace(namespace);
+  const tlsSecretName = `${releaseName}-nginx-tls`;
+  if (nginxTlsDirect) {
+    console.log(`\nCreating TLS secret from ${process.env.NGINX_TLS_CERT_FILE}...`);
+    runCommand(
+      `kubectl create secret tls ${tlsSecretName} --cert="${nginxTlsDirect.certPath}" --key="${nginxTlsDirect.keyPath}" ` +
+      `-n ${namespace} --dry-run=client -o yaml | kubectl apply -f -`,
+      { stdio: 'inherit' }
+    );
+  }
+  adoptHelmSecret(tlsSecretName, namespace, releaseName);
   console.log(`\nDeploying ${releaseName} (oauth2) to ${namespace}...`);
   try {
     const cmd =
@@ -322,12 +342,21 @@ async function deleteAppOAuth2() {
   console.log(`\n✓ ${appName} (oauth2) deleted`);
 }
 
+function getClusterDomain() {
+  try {
+    return runCommand(
+      `kubectl get ingresses.config.openshift.io cluster -o jsonpath="{.spec.domain}" 2>/dev/null`,
+      { encoding: 'utf8' }
+    ).trim();
+  } catch (_) { return ''; }
+}
+
 function getAppConfig() {
   const name      = process.env.APP_NAME      || 'basic-app';
   const namespace = process.env.APP_NAMESPACE || name;
-  const domain    = process.env.ROUTE_HOST_DOMAIN || '';
   const address   = process.env.APP_ADDRESS;
   const host      = (address && address !== '-') ? address : `${name}-${namespace}`;
+  const domain    = getClusterDomain();
   const routeHost = domain ? `${host}.${domain}` : '';
   return { name, namespace, routeHost };
 }
@@ -364,6 +393,37 @@ function appConfigExtraLines() {
   return lines;
 }
 
+function adoptHelmSecret(secretName, namespace, releaseName) {
+  try {
+    runCommand(
+      `kubectl annotate secret ${secretName} -n ${namespace} ` +
+      `"meta.helm.sh/release-name=${releaseName}" "meta.helm.sh/release-namespace=${namespace}" --overwrite 2>/dev/null`,
+      { stdio: 'pipe' }
+    );
+    runCommand(
+      `kubectl label secret ${secretName} -n ${namespace} "app.kubernetes.io/managed-by=Helm" --overwrite 2>/dev/null`,
+      { stdio: 'pipe' }
+    );
+  } catch (_) {}
+}
+
+function ensureNginxTlsDirect() {
+  const certFile = process.env.NGINX_TLS_CERT_FILE;
+  const keyFile  = process.env.NGINX_TLS_KEY_FILE;
+  if (!certFile || certFile === '-' || !keyFile || keyFile === '-') return null;
+
+  const certPath = path.resolve(__dirname, '..', certFile);
+  const keyPath  = path.resolve(__dirname, '..', keyFile);
+
+  if (!fs.existsSync(certPath)) { console.error(`\nTLS cert not found: ${certFile}`); process.exit(1); }
+  if (!fs.existsSync(keyPath))  { console.error(`\nTLS key not found: ${keyFile}`);  process.exit(1); }
+
+  return {
+    certPath: certPath.replace(/\\/g, '/'),
+    keyPath:  keyPath.replace(/\\/g, '/'),
+  };
+}
+
 function ensureNginxCa() {
   const certFile = process.env.CA_ROOT_CERT_FILE;
   const keyFile  = process.env.CA_ROOT_CERT_KEY;
@@ -387,7 +447,11 @@ function ensureNginxCa() {
 }
 
 
-function logCertMode(nginxCa, acmeUrl) {
+function logCertMode(nginxCa, acmeUrl, nginxTlsDirect) {
+  if (nginxTlsDirect) {
+    console.log(`\n📋 TLS mode: pre-supplied cert  (${nginxTlsDirect.certPath})`);
+    return;
+  }
   if (nginxCa) {
     console.log(`\n📋 TLS mode: local CA  (${nginxCa.certPath})`);
     return;
@@ -410,12 +474,14 @@ function logCertMode(nginxCa, acmeUrl) {
   }
 }
 
-function showCertStatus(namespace, releaseName) {
+function showCertStatus(namespace, releaseName, acmeMode = false) {
   console.log('\n--- Certificate status ---');
-  try {
-    const certs = runCommand(`kubectl get certificate,certificaterequest -n ${namespace} 2>/dev/null`, { encoding: 'utf8' }).trim();
-    console.log(certs || '  (none)');
-  } catch (_) { console.log('  (unable to query)'); }
+  if (acmeMode) {
+    try {
+      const certs = runCommand(`kubectl get certificate,certificaterequest -n ${namespace} 2>/dev/null`, { encoding: 'utf8' }).trim();
+      if (certs) console.log(certs);
+    } catch (_) {}
+  }
 
   try {
     const secret = runCommand(
@@ -459,7 +525,7 @@ function waitForCertAndRestartNginx(namespace, releaseName) {
     console.log('Certificate ready. Restarting nginx to pick up the real cert...');
     runCommand(`kubectl rollout restart deployment/${releaseName}-nginx -n ${namespace}`, { stdio: 'inherit' });
     runCommand(`kubectl rollout status deployment/${releaseName}-nginx -n ${namespace} --timeout=60s`, { stdio: 'inherit' });
-    showCertStatus(namespace, releaseName);
+    showCertStatus(namespace, releaseName, true);
   } catch (_) {
     console.warn('⚠️  Certificate did not become Ready within 120s. Check cert-manager logs:');
     console.warn(`   kubectl describe certificate ${releaseName}-nginx-tls -n ${namespace}`);
