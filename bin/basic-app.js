@@ -227,7 +227,8 @@ async function deployAppX509() {
       { stdio: 'inherit' }
     );
     console.log(`\n✓ ${releaseName} deployed`);
-    showCertStatus(namespace, releaseName);
+    if (acmeUrl && acmeUrl !== '-') waitForCertAndRestartNginx(namespace, releaseName);
+    else showCertStatus(namespace, releaseName);
     try {
       const route = runCommand(`kubectl get route ${releaseName} -n ${namespace} -o jsonpath="{.spec.host}" 2>/dev/null`, { encoding: 'utf8' }).trim();
       if (route) console.log(`🌐 https://${route}  (requires client cert)`);
@@ -293,7 +294,8 @@ async function deployAppOAuth2() {
       appConfigSetFileFlags();
     runCommand(cmd, { stdio: 'inherit' });
     console.log(`\n✓ ${releaseName} deployed`);
-    showCertStatus(namespace, releaseName);
+    if (acmeUrl && acmeUrl !== '-') waitForCertAndRestartNginx(namespace, releaseName);
+    else showCertStatus(namespace, releaseName);
     try {
       const route = runCommand(`kubectl get route ${releaseName} -n ${namespace} -o jsonpath="{.spec.host}" 2>/dev/null`, { encoding: 'utf8' }).trim();
       if (route) console.log(`🌐 https://${route}  (x509 + oauth2)`);
@@ -424,6 +426,24 @@ function showCertStatus(namespace, releaseName) {
     }
   } catch (_) {}
   console.log('--------------------------');
+}
+
+function waitForCertAndRestartNginx(namespace, releaseName) {
+  console.log('\nWaiting for certificate to become Ready (timeout 120s)...');
+  try {
+    runCommand(
+      `kubectl wait certificate/${releaseName}-nginx-tls -n ${namespace} --for=condition=Ready --timeout=120s`,
+      { stdio: 'inherit' }
+    );
+    console.log('Certificate ready. Restarting nginx to pick up the real cert...');
+    runCommand(`kubectl rollout restart deployment/${releaseName}-nginx -n ${namespace}`, { stdio: 'inherit' });
+    runCommand(`kubectl rollout status deployment/${releaseName}-nginx -n ${namespace} --timeout=60s`, { stdio: 'inherit' });
+    showCertStatus(namespace, releaseName);
+  } catch (_) {
+    console.warn('⚠️  Certificate did not become Ready within 120s. Check cert-manager logs:');
+    console.warn(`   kubectl describe certificate ${releaseName}-nginx-tls -n ${namespace}`);
+    console.warn(`   kubectl logs -n $(kubectl get ns | grep cert-manager | head -1 | awk '{print $1}') deployment/cert-manager`);
+  }
 }
 
 function getGitHubAppPrivateKey() {
