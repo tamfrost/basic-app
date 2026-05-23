@@ -30,6 +30,20 @@
       "problemMatcher": []
     },
     {
+      "label": "Workflow: mac",
+      "type": "shell",
+      "command": "gh workflow run publish.yaml --ref ca-signing --field run_on_mac=true",
+      "presentation": { "reveal": "always", "panel": "shared", "close": false },
+      "problemMatcher": []
+    },
+    {
+      "label": "Workflow: linux",
+      "type": "shell",
+      "command": "gh workflow run publish.yaml --ref ca-signing --field run_on_mac=false",
+      "presentation": { "reveal": "always", "panel": "shared", "close": false },
+      "problemMatcher": []
+    },
+    {
       "label": "GitHub: Open page",
       "type": "shell",
       "command": "xdg-open ${input:githubPage}",

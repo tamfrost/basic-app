@@ -6,6 +6,11 @@ on:
   push:
     branches: [ca-signing]
   workflow_dispatch:
+    inputs:
+      run_on_mac:
+        description: Run on macOS runner
+        type: boolean
+        default: false
 
 # Required repository variables:
 #   CONTAINER_REGISTRY - registry host, e.g. ghcr.io or containers.example.com
@@ -29,7 +34,7 @@ jobs:
       - name: Pick runner
         id: set
         run: |
-          if echo "${{ github.event.head_commit.message }}" | grep -qF '[run on mac]'; then
+          if echo "${{ github.event.head_commit.message }}" | grep -qF '[run on mac]' || [ "${{ inputs.run_on_mac }}" = "true" ]; then
             echo 'runner=["self-hosted", "macOS"]' >> $GITHUB_OUTPUT
           else
             echo 'runner=["self-hosted", "Linux"]' >> $GITHUB_OUTPUT
