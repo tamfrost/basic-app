@@ -1,0 +1,26 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Runner: Start",
+      "type": "shell",
+      "command": ".github/runner/run.cmd",
+      "presentation": { "reveal": "always", "panel": "dedicated", "close": false },
+      "problemMatcher": []
+    },
+    {
+      "label": "Runner: Stop",
+      "type": "shell",
+      "command": "Get-Process -Name Runner.Listener -ErrorAction SilentlyContinue | Stop-Process -Force",
+      "presentation": { "reveal": "never", "panel": "shared", "close": true },
+      "problemMatcher": []
+    },
+    {
+      "label": "GitHub: Open repo + Actions",
+      "type": "shell",
+      "command": "Start-Process 'chrome' 'https://github.com/tamfrost/basic-app'; Start-Process 'chrome' 'https://github.com/tamfrost/basic-app/actions'",
+      "presentation": { "reveal": "never", "panel": "shared", "close": true },
+      "problemMatcher": []
+    }
+  ]
+}

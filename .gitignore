@@ -26,3 +26,9 @@ build/
 old_app
 
 other-oauth2.yaml
+
+secrets.json
+
+# GitHub Actions self-hosted runner (keep only README)
+.github/runner/*
+!.github/runner/README.md

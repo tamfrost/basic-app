@@ -31,7 +31,8 @@
       "Bash(openssl verify *)",
       "Bash(openssl s_client -connect localhost:15000 -servername pebble)",
       "Bash(rm /run/media/ruser/SERIAL/git/basic-app.git/objects/9b/e4dfb7eeba82d5b5192813d4d5d4f25ac8c7f2)",
-      "Bash(git push *)"
+      "Bash(git push *)",
+      "Bash(git remote *)"
     ]
   }
 }
