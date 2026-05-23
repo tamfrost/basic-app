@@ -11,6 +11,13 @@ const ENV_PATH = path.join(__dirname, '../.env');
 function reloadEnv() { require('dotenv').config({ path: ENV_PATH, override: true }); }
 reloadEnv();
 
+const readline = require('readline');
+readline.emitKeypressEvents(process.stdin);
+if (process.stdin.isTTY) process.stdin.setRawMode(true);
+process.stdin.on('keypress', (_, key) => {
+  if (key && key.name === 'escape') process.exit(0);
+});
+
 function runCommand(command, options = {}) {
   const { execSync } = require('child_process');
   const isWindows = process.platform === 'win32';
@@ -579,6 +586,7 @@ async function deployArgoCD(appName, chartSubPath, extraValues = '') {
   } catch (_) {}
 
 
+
   try {
     runCommand(`kubectl delete secret ${appName}-infra-repo -n ${argoCDNS}`, { stdio: 'pipe' });
   } catch (_) {}
@@ -602,6 +610,14 @@ async function deployArgoCD(appName, chartSubPath, extraValues = '') {
       `| kubectl apply -f -`,
       { stdio: 'inherit' }
     );
+    if (process.env.ARGOCD_WEBHOOK_SECRET) {
+      console.log('\nDeploying ArgoCD webhook secret...');
+      const manifest =
+        `apiVersion: v1\nkind: Secret\nmetadata:\n  name: argocd-secret\n  namespace: ${argoCDNS}\n` +
+        `stringData:\n  webhook.github.secret: "${process.env.ARGOCD_WEBHOOK_SECRET}"\n`;
+      const { execSync } = require('child_process');
+      execSync(`kubectl apply --field-manager=basic-app -f -`, { input: manifest, stdio: ['pipe', 'inherit', 'inherit'] });
+    }
   } finally {
     if (fs.existsSync(tmpKeyFile)) fs.unlinkSync(tmpKeyFile);
     if (tmpValuesFile && fs.existsSync(tmpValuesFile)) fs.unlinkSync(tmpValuesFile);
@@ -883,4 +899,7 @@ async function main() {
   }
 }
 
-main().catch(console.error);
+main().catch(err => {
+  if (err.name === 'ExitPromptError') process.exit(0);
+  console.error(err);
+});
