@@ -17,7 +17,7 @@ jobs:
           CONTAINER_REGISTRY_PAT: ${{ secrets.CONTAINER_REGISTRY_PAT }}
           AUTH_APP_PRIVATE_KEY: ${{ secrets.AUTH_APP_PRIVATE_KEY }}
         run: |
-          @(
+          $lines = @(
             'APP_NAME=${{ vars.APP_NAME }}'
             'APP_NAMESPACE=${{ vars.APP_NAMESPACE }}'
             'APP_ADDRESS=${{ vars.APP_ADDRESS }}'
@@ -43,4 +43,6 @@ jobs:
             'AUTH_APP_ID=${{ vars.AUTH_APP_ID }}'
             'AUTH_APP_INSTALLATION_ID=${{ vars.AUTH_APP_INSTALLATION_ID }}'
             "AUTH_APP_PRIVATE_KEY=`"$env:AUTH_APP_PRIVATE_KEY`""
-          ) | Set-Content -Path '../../../../../.env.fetched' -Encoding utf8NoBOM
+          )
+          $utf8 = [System.Text.UTF8Encoding]::new($false)
+          [System.IO.File]::WriteAllLines((Join-Path (Resolve-Path '../../../../../') '.env.fetched'), $lines, $utf8)
