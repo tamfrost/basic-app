@@ -18,6 +18,7 @@ jobs:
           CONTAINER_REGISTRY_PAT: ${{ secrets.CONTAINER_REGISTRY_PAT }}
           INFRA_PAT: ${{ secrets.INFRA_PAT }}
           AUTH_APP_PRIVATE_KEY: ${{ secrets.AUTH_APP_PRIVATE_KEY }}
+          ARGOCD_WEBHOOK_SECRET: ${{ secrets.ARGOCD_WEBHOOK_SECRET }}
         run: |
           out="../../../../../.env.fetched"
           gh variable list --json name,value | jq -r '.[] | "\(.name)=\(.value)"' > "$out"
@@ -25,6 +26,7 @@ jobs:
           echo "OAUTH2_COOKIE_SECRET=$OAUTH2_COOKIE_SECRET" >> "$out"
           echo "CONTAINER_REGISTRY_PAT=$CONTAINER_REGISTRY_PAT" >> "$out"
           echo "INFRA_PAT=$INFRA_PAT" >> "$out"
+          echo "ARGOCD_WEBHOOK_SECRET=$ARGOCD_WEBHOOK_SECRET" >> "$out"
           printf 'AUTH_APP_PRIVATE_KEY="%s"\n' "$AUTH_APP_PRIVATE_KEY" >> "$out"
 
       - name: Write .env.fetched (Windows)
@@ -36,6 +38,7 @@ jobs:
           CONTAINER_REGISTRY_PAT: ${{ secrets.CONTAINER_REGISTRY_PAT }}
           INFRA_PAT: ${{ secrets.INFRA_PAT }}
           AUTH_APP_PRIVATE_KEY: ${{ secrets.AUTH_APP_PRIVATE_KEY }}
+          ARGOCD_WEBHOOK_SECRET: ${{ secrets.ARGOCD_WEBHOOK_SECRET }}
         run: |
           $vars = gh variable list --json name,value | ConvertFrom-Json
           $lines = $vars | ForEach-Object { "$($_.name)=$($_.value)" }
@@ -44,5 +47,6 @@ jobs:
           $lines += "CONTAINER_REGISTRY_PAT=$env:CONTAINER_REGISTRY_PAT"
           $lines += "INFRA_PAT=$env:INFRA_PAT"
           $lines += "AUTH_APP_PRIVATE_KEY=`"$env:AUTH_APP_PRIVATE_KEY`""
+          $lines += "ARGOCD_WEBHOOK_SECRET=$env:ARGOCD_WEBHOOK_SECRET"
           $utf8 = [System.Text.UTF8Encoding]::new($false)
           [System.IO.File]::WriteAllLines((Join-Path (Resolve-Path '../../../../../') '.env.fetched'), $lines, $utf8)

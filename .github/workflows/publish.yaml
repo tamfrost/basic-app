@@ -100,3 +100,24 @@ jobs:
           git add ${{ env.HELM_CHART_PATH }}/
           git commit -m "Update basic-app Helm chart to ${{ steps.version.outputs.version }} (${{ steps.sha.outputs.short }})" || echo "No changes to commit"
           git push
+
+      # Option A — Proper webhook (preferred, no workflow step needed):
+      #   Configure a webhook on the infra repo in GitHub:
+      #     Payload URL:  https://<argocd-server>/api/webhook
+      #     Content type: application/json
+      #     Secret:       <shared secret, also set in ArgoCD>
+      #   ArgoCD receives the push event and refreshes all apps that use the infra repo.
+
+      # Option B — REST API sync from workflow (requires ARGOCD_SERVER var + ARGOCD_TOKEN secret,
+      #   and ArgoCD must be reachable from the runner)
+      # - name: Trigger ArgoCD sync
+      #   shell: bash
+      #   run: |
+      #     APP="${{ vars.APP_NAME }}"
+      #     for app in "$APP" "${APP}-x509" "${APP}-oauth2"; do
+      #       curl -sk -o /dev/null -w "%{http_code} $app\n" \
+      #         -X POST "${{ vars.ARGOCD_SERVER }}/api/v1/applications/$app/sync" \
+      #         -H "Authorization: Bearer ${{ secrets.ARGOCD_TOKEN }}" \
+      #         -H "Content-Type: application/json" \
+      #         -d '{"prune":false,"dryRun":false}' || true
+      #     done
