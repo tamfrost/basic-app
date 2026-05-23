@@ -71,8 +71,15 @@ http.createServer((req, res) => {
       </table>`;
   }
 
+  const buildInfo = `
+    <hr style="margin-top:40px">
+    <p style="color:#888;font-size:0.8em">
+      commit: ${process.env.GIT_COMMIT || 'unknown'} &nbsp;|&nbsp;
+      built: ${process.env.BUILD_TIME || 'unknown'}
+    </p>`;
+
   res.writeHead(200, { 'Content-Type': 'text/html' });
-  res.end(`<html><body><h1>hello from basic-app</h1>${authSection}${certSection}${configSection()}</body></html>\n`);
+  res.end(`<html><body><h1>hello from basic-app</h1>${authSection}${certSection}${configSection()}${buildInfo}</body></html>\n`);
 }).listen(PORT, () => {
   console.log(`app on http://localhost:${PORT}`);
 });

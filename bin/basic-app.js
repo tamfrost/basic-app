@@ -7,7 +7,9 @@ const { HttpsProxyAgent } = require('https-proxy-agent');
 const fs = require('fs');
 const path = require('path');
 
-require('dotenv').config({ path: path.join(__dirname, '../.env') });
+const ENV_PATH = path.join(__dirname, '../.env');
+function reloadEnv() { require('dotenv').config({ path: ENV_PATH, override: true }); }
+reloadEnv();
 
 function runCommand(command, options = {}) {
   const { execSync } = require('child_process');
@@ -535,6 +537,22 @@ function getGitHubAppPrivateKey() {
   return key;
 }
 
+function grantArgoCDPermissions() {
+  const { name: appName, namespace } = getAppConfig();
+  const argoCDNS = process.env.ARGOCD_NAMESPACE || 'openshift-gitops';
+  const argoSA   = `${argoCDNS}-argocd-application-controller`;
+  console.log(`\nGranting ArgoCD admin permissions in namespace ${namespace}...`);
+  try {
+    runCommand(
+      `kubectl create rolebinding ${appName}-argocd-admin ` +
+      `--clusterrole=admin ` +
+      `--serviceaccount=${argoCDNS}:${argoSA} ` +
+      `-n ${namespace} --dry-run=client -o yaml | kubectl apply -f -`,
+      { stdio: 'inherit' }
+    );
+  } catch (_) {}
+}
+
 async function deployArgoCD(appName, chartSubPath, extraValues = '') {
   const chartPath      = path.join(__dirname, '../.helm/argocd').replace(/\\/g, '/');
   const infraRepo      = process.env.INFRA_REGISTRY || '';
@@ -559,6 +577,7 @@ async function deployArgoCD(appName, chartSubPath, extraValues = '') {
   try {
     runCommand(`kubectl label namespace ${namespace} argocd.argoproj.io/managed-by=${argoCDNS} --overwrite`, { stdio: 'inherit' });
   } catch (_) {}
+
 
   try {
     runCommand(`kubectl delete secret ${appName}-infra-repo -n ${argoCDNS}`, { stdio: 'pipe' });
@@ -748,7 +767,7 @@ async function appOAuth2Menu() {
   });
   if (action === 'deploy')         await deployAppOAuth2();
   if (action === 'delete')         await deleteAppOAuth2();
-  if (action === 'deploy_argocd')  await deployAppOAuth2ArgoCD();
+  if (action === 'deploy_argocd')  { grantArgoCDPermissions(); await deployAppOAuth2ArgoCD(); }
   if (action === 'delete_argocd')  await deleteAppOAuth2ArgoCD();
 }
 
@@ -765,7 +784,7 @@ async function appX509Menu() {
   });
   if (action === 'deploy')         await deployAppX509();
   if (action === 'delete')         await deleteAppX509();
-  if (action === 'deploy_argocd')  await deployAppX509ArgoCD();
+  if (action === 'deploy_argocd')  { grantArgoCDPermissions(); await deployAppX509ArgoCD(); }
   if (action === 'delete_argocd')  await deleteAppX509ArgoCD();
 }
 
@@ -782,7 +801,7 @@ async function appMenu() {
   });
   if (action === 'deploy')         await deployApp();
   if (action === 'delete')         await deleteApp();
-  if (action === 'deploy_argocd')  await deployAppArgoCD();
+  if (action === 'deploy_argocd')  { grantArgoCDPermissions(); await deployAppArgoCD(); }
   if (action === 'delete_argocd')  await deleteAppArgoCD();
 }
 
@@ -834,6 +853,7 @@ async function main() {
       ]
     });
 
+    reloadEnv();
     switch (action) {
       case 'app':
         await appMenu();

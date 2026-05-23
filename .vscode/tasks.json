@@ -64,7 +64,8 @@
         { "label": "Code", "value": "https://github.com/tamfrost/basic-app" },
         { "label": "Actions", "value": "https://github.com/tamfrost/basic-app/actions" },
         { "label": "Settings", "value": "https://github.com/tamfrost/basic-app/settings" },
-        { "label": "Runners", "value": "https://github.com/tamfrost/basic-app/settings/actions/runners" }
+        { "label": "Runners", "value": "https://github.com/tamfrost/basic-app/settings/actions/runners" },
+        { "label": "Package", "value": "https://github.com/tamfrost/basic-app/pkgs/container/basic-app" }
       ]
     }
   ]

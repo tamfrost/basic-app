@@ -49,7 +49,10 @@ jobs:
           IMAGE_BASE="${{ env.REGISTRY }}/$(echo '${{ env.IMAGE_NAME }}' | tr '[:upper:]' '[:lower:]')"
           echo "short=$SHORT_SHA" >> $GITHUB_OUTPUT
 
-          docker build -t "${IMAGE_BASE}:${SHORT_SHA}" .
+          docker build \
+            --build-arg GIT_COMMIT="${SHORT_SHA}" \
+            --build-arg BUILD_TIME="$(date '+%Y-%m-%d %H:%M:%S %Z')" \
+            -t "${IMAGE_BASE}:${SHORT_SHA}" .
           docker tag "${IMAGE_BASE}:${SHORT_SHA}" "${IMAGE_BASE}:latest"
 
           docker push "${IMAGE_BASE}:${SHORT_SHA}"
