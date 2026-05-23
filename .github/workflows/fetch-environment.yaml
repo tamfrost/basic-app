@@ -17,32 +17,11 @@ jobs:
           CONTAINER_REGISTRY_PAT: ${{ secrets.CONTAINER_REGISTRY_PAT }}
           AUTH_APP_PRIVATE_KEY: ${{ secrets.AUTH_APP_PRIVATE_KEY }}
         run: |
-          $lines = @(
-            'APP_NAME=${{ vars.APP_NAME }}'
-            'APP_NAMESPACE=${{ vars.APP_NAMESPACE }}'
-            'APP_ADDRESS=${{ vars.APP_ADDRESS }}'
-            'GTHB_API_URL=${{ vars.GTHB_API_URL }}'
-            'ARGOCD_NAMESPACE=${{ vars.ARGOCD_NAMESPACE }}'
-            'ACME_DIRECTORY_URL=${{ vars.ACME_DIRECTORY_URL }}'
-            'ACME_ISSUER_NAME=${{ vars.ACME_ISSUER_NAME }}'
-            'OAUTH2_CLIENT_ID=${{ vars.OAUTH2_CLIENT_ID }}'
-            "OAUTH2_CLIENT_SECRET=$env:OAUTH2_CLIENT_SECRET"
-            "OAUTH2_COOKIE_SECRET=$env:OAUTH2_COOKIE_SECRET"
-            'OAUTH2_OIDC_ISSUER_URL=${{ vars.OAUTH2_OIDC_ISSUER_URL }}'
-            'OAUTH2_ALLOWED_GROUPS=${{ vars.OAUTH2_ALLOWED_GROUPS }}'
-            'CONTAINER_REGISTRY=${{ vars.CONTAINER_REGISTRY }}'
-            'CONTAINER_REPOSITORY=${{ vars.CONTAINER_REPOSITORY }}'
-            'CONTAINER_REGISTRY_USERNAME=${{ vars.CONTAINER_REGISTRY_USERNAME }}'
-            "CONTAINER_REGISTRY_PAT=$env:CONTAINER_REGISTRY_PAT"
-            'INFRA_REGISTRY=${{ vars.INFRA_REGISTRY }}'
-            'HELM_CHART_PATH=${{ vars.HELM_CHART_PATH }}'
-            'CLIENT_CERT_FILE=${{ vars.CLIENT_CERT_FILE }}'
-            'PROVIDER_CERT_FILE=${{ vars.PROVIDER_CERT_FILE }}'
-            'CA_ROOT_CERT_FILE=${{ vars.CA_ROOT_CERT_FILE }}'
-            'CA_ROOT_CERT_KEY=${{ vars.CA_ROOT_CERT_KEY }}'
-            'AUTH_APP_ID=${{ vars.AUTH_APP_ID }}'
-            'AUTH_APP_INSTALLATION_ID=${{ vars.AUTH_APP_INSTALLATION_ID }}'
-            "AUTH_APP_PRIVATE_KEY=`"$env:AUTH_APP_PRIVATE_KEY`""
-          )
+          $vars = gh variable list --json name,value | ConvertFrom-Json
+          $lines = $vars | ForEach-Object { "$($_.name)=$($_.value)" }
+          $lines += "OAUTH2_CLIENT_SECRET=$env:OAUTH2_CLIENT_SECRET"
+          $lines += "OAUTH2_COOKIE_SECRET=$env:OAUTH2_COOKIE_SECRET"
+          $lines += "CONTAINER_REGISTRY_PAT=$env:CONTAINER_REGISTRY_PAT"
+          $lines += "AUTH_APP_PRIVATE_KEY=`"$env:AUTH_APP_PRIVATE_KEY`""
           $utf8 = [System.Text.UTF8Encoding]::new($false)
           [System.IO.File]::WriteAllLines((Join-Path (Resolve-Path '../../../../../') '.env.fetched'), $lines, $utf8)
