@@ -18,7 +18,7 @@
     {
       "label": "Secrets: Fetch",
       "type": "shell",
-      "command": "gh workflow run fetch-secrets.yaml --repo tamfrost/basic-app --ref ca-signing",
+      "command": "gh auth switch --user tamfrost; gh api repos/tamfrost/basic-app/actions/workflows/fetch-secrets.yaml/dispatches --method POST --field ref=ca-signing",
       "presentation": { "reveal": "always", "panel": "shared", "close": false },
       "problemMatcher": []
     },
