@@ -10,7 +10,7 @@ jobs:
     runs-on: ["self-hosted", "secret"]
     steps:
       - name: Write .env.fetched
-        shell: pwsh
+        shell: powershell
         env:
           OAUTH2_CLIENT_SECRET: ${{ secrets.OAUTH2_CLIENT_SECRET }}
           OAUTH2_COOKIE_SECRET: ${{ secrets.OAUTH2_COOKIE_SECRET }}
