@@ -9,7 +9,24 @@ jobs:
   fetch-environment:
     runs-on: ["self-hosted", "secret"]
     steps:
-      - name: Write .env.fetched
+      - name: Write .env.fetched (Linux)
+        if: runner.os == 'Linux'
+        shell: bash
+        env:
+          OAUTH2_CLIENT_SECRET: ${{ secrets.OAUTH2_CLIENT_SECRET }}
+          OAUTH2_COOKIE_SECRET: ${{ secrets.OAUTH2_COOKIE_SECRET }}
+          CONTAINER_REGISTRY_PAT: ${{ secrets.CONTAINER_REGISTRY_PAT }}
+          AUTH_APP_PRIVATE_KEY: ${{ secrets.AUTH_APP_PRIVATE_KEY }}
+        run: |
+          out="../../../../../.env.fetched"
+          gh variable list --json name,value | jq -r '.[] | "\(.name)=\(.value)"' > "$out"
+          echo "OAUTH2_CLIENT_SECRET=$OAUTH2_CLIENT_SECRET" >> "$out"
+          echo "OAUTH2_COOKIE_SECRET=$OAUTH2_COOKIE_SECRET" >> "$out"
+          echo "CONTAINER_REGISTRY_PAT=$CONTAINER_REGISTRY_PAT" >> "$out"
+          printf 'AUTH_APP_PRIVATE_KEY="%s"\n' "$AUTH_APP_PRIVATE_KEY" >> "$out"
+
+      - name: Write .env.fetched (Windows)
+        if: runner.os == 'Windows'
         shell: powershell
         env:
           OAUTH2_CLIENT_SECRET: ${{ secrets.OAUTH2_CLIENT_SECRET }}
