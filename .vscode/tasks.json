@@ -12,11 +12,11 @@
       "problemMatcher": []
     },
     {
-      "label": "Secrets: Fetch",
+      "label": "Environment: Fetch",
       "type": "shell",
-      "command": "gh auth switch --user tamfrost; gh api repos/tamfrost/basic-app/actions/workflows/fetch-secrets.yaml/dispatches --method POST --field ref=ca-signing",
+      "command": "gh auth switch --user tamfrost; gh api repos/tamfrost/basic-app/actions/workflows/fetch-environment.yaml/dispatches --method POST --field ref=ca-signing",
       "windows": {
-        "command": "gh auth switch --user tamfrost; gh api repos/tamfrost/basic-app/actions/workflows/fetch-secrets.yaml/dispatches --method POST --field ref=ca-signing",
+        "command": "gh auth switch --user tamfrost; gh api repos/tamfrost/basic-app/actions/workflows/fetch-environment.yaml/dispatches --method POST --field ref=ca-signing",
         "options": { "shell": { "executable": "powershell.exe", "args": ["-Command"] } }
       },
       "presentation": { "reveal": "always", "panel": "shared", "close": false },
