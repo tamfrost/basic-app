@@ -16,6 +16,13 @@
       "problemMatcher": []
     },
     {
+      "label": "Secrets: Fetch",
+      "type": "shell",
+      "command": "gh workflow run fetch-secrets.yaml --repo tamfrost/basic-app --ref ca-signing",
+      "presentation": { "reveal": "always", "panel": "shared", "close": false },
+      "problemMatcher": []
+    },
+    {
       "label": "GitHub: Open repo + Actions",
       "type": "shell",
       "command": "Start-Process 'chrome' 'https://github.com/tamfrost/basic-app'; Start-Process 'chrome' 'https://github.com/tamfrost/basic-app/actions'",
