@@ -26,23 +26,8 @@ env:
   HELM_CHART_PATH: ${{ vars.HELM_CHART_PATH }}
 
 jobs:
-  determine-runner:
-    runs-on: self-hosted
-    outputs:
-      runner: ${{ steps.set.outputs.runner }}
-    steps:
-      - name: Pick runner
-        id: set
-        run: |
-          if echo "${{ github.event.head_commit.message }}" | grep -qF '[run on mac]' || [ "${{ inputs.run_on_mac }}" = "true" ]; then
-            echo 'runner=["self-hosted", "macOS"]' >> $GITHUB_OUTPUT
-          else
-            echo 'runner=["self-hosted", "Linux"]' >> $GITHUB_OUTPUT
-          fi
-
   build-and-push:
-    needs: determine-runner
-    runs-on: ${{ fromJSON(needs.determine-runner.outputs.runner) }}
+    runs-on: ${{ (contains(github.event.head_commit.message, '[run on mac]') || inputs.run_on_mac) && fromJSON('["self-hosted", "macOS"]') || fromJSON('["self-hosted", "Linux"]') }}
     permissions:
       contents: read
       packages: write
