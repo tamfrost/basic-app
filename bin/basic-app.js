@@ -44,7 +44,7 @@ if (ca) agentOptions.ca = ca;
 let httpsAgent = undefined;
 if (proxy) httpsAgent = new HttpsProxyAgent(proxy, agentOptions);
 
-const GITHUB_API_URL = (process.env.GITHUB_API_URL || 'https://api.github.com').replace(/\/$/, '');
+const GTHB_API_URL = (process.env.GTHB_API_URL || 'https://api.github.com').replace(/\/$/, '');
 
 const axiosInstance = axios.create({
   httpsAgent,
@@ -58,15 +58,15 @@ const axiosInstance = axios.create({
 function createGitHubAppJWT() {
   const now = Math.floor(Date.now() / 1000);
   return jwt.sign(
-    { iat: now - 60, exp: now + (10 * 60), iss: process.env.GITHUB_APP_ID },
-    process.env.GITHUB_APP_PRIVATE_KEY,
+    { iat: now - 60, exp: now + (10 * 60), iss: process.env.AUTH_APP_ID },
+    process.env.AUTH_APP_PRIVATE_KEY,
     { algorithm: 'RS256' }
   );
 }
 
 async function getInstallationToken() {
   const response = await axiosInstance.post(
-    `${GITHUB_API_URL}/app/installations/${process.env.GITHUB_APP_INSTALLATION_ID}/access_tokens`,
+    `${GTHB_API_URL}/app/installations/${process.env.AUTH_APP_INSTALLATION_ID}/access_tokens`,
     {},
     { headers: { 'Authorization': `Bearer ${createGitHubAppJWT()}` } }
   );
@@ -94,18 +94,11 @@ async function getGitHubVariables() {
     console.log('✓ Successfully authenticated\n');
 
     let repoInfo;
-    if (process.env.GITHUB_REPO_OWNER && process.env.GITHUB_REPO_NAME) {
-      repoInfo = { owner: process.env.GITHUB_REPO_OWNER, repo: process.env.GITHUB_REPO_NAME };
-      console.log(`Using repository from environment: ${repoInfo.owner}/${repoInfo.repo}`);
-    } else {
-      repoInfo = getRepoInfoFromGitConfig();
-      if (repoInfo) console.log(`Using repository from git config: ${repoInfo.owner}/${repoInfo.repo}`);
-    }
+    repoInfo = getRepoInfoFromGitConfig();
+    if (repoInfo) console.log(`Using repository from git config: ${repoInfo.owner}/${repoInfo.repo}`);
 
     if (!repoInfo) {
       console.error('Error: Could not determine repository info.');
-      console.error('Either set GITHUB_REPO_OWNER and GITHUB_REPO_NAME in .env,');
-      console.error('or ensure you are in a valid git repository with a GitHub remote.');
       return;
     }
 
@@ -113,7 +106,7 @@ async function getGitHubVariables() {
     console.log(`Fetching variables for ${owner}/${repo}...\n`);
 
     const repoVarsResponse = await axiosInstance.get(
-      `${GITHUB_API_URL}/repos/${owner}/${repo}/actions/variables`,
+      `${GTHB_API_URL}/repos/${owner}/${repo}/actions/variables`,
       { headers: { 'Authorization': `Bearer ${token}` } }
     );
 
@@ -126,7 +119,7 @@ async function getGitHubVariables() {
 
     try {
       const orgVarsResponse = await axiosInstance.get(
-        `${GITHUB_API_URL}/orgs/${owner}/actions/variables`,
+        `${GTHB_API_URL}/orgs/${owner}/actions/variables`,
         { headers: { 'Authorization': `Bearer ${token}` } }
       );
       console.log('\n=== Organization Variables ===');
@@ -534,8 +527,8 @@ function waitForCertAndRestartNginx(namespace, releaseName) {
 }
 
 function getGitHubAppPrivateKey() {
-  let key = process.env.GITHUB_APP_PRIVATE_KEY;
-  if (!key) throw new Error('GITHUB_APP_PRIVATE_KEY not found in .env file');
+  let key = process.env.AUTH_APP_PRIVATE_KEY;
+  if (!key) throw new Error('AUTH_APP_PRIVATE_KEY not found in .env file');
   key = key.replace(/^["']|["']$/g, '');
   key = key.replace(/\\n/g, '\n');
   key = key.replace(/\r/g, '');
@@ -549,8 +542,8 @@ async function deployArgoCD(appName, chartSubPath, extraValues = '') {
   const registry       = process.env.CONTAINER_REGISTRY || 'ghcr.io';
   const repository     = process.env.CONTAINER_REPOSITORY || 'tamfrost/basic-app';
   const argoCDNS       = process.env.ARGOCD_NAMESPACE || 'openshift-gitops';
-  const appId          = process.env.GITHUB_APP_ID;
-  const installationId = process.env.GITHUB_APP_INSTALLATION_ID;
+  const appId          = process.env.AUTH_APP_ID;
+  const installationId = process.env.AUTH_APP_INSTALLATION_ID;
   const privateKey     = getGitHubAppPrivateKey();
   const { namespace }  = getAppConfig();
 
