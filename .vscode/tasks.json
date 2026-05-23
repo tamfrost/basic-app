@@ -23,6 +23,13 @@
       "problemMatcher": []
     },
     {
+      "label": "Environment: Push",
+      "type": "shell",
+      "command": "npm run push-env",
+      "presentation": { "reveal": "always", "panel": "shared", "close": false },
+      "problemMatcher": []
+    },
+    {
       "label": "GitHub: Open page",
       "type": "shell",
       "command": "xdg-open ${input:githubPage}",
