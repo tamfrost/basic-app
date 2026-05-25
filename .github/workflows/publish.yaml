@@ -40,6 +40,7 @@ jobs:
         shell: bash
         run: |
           echo "${{ secrets.GITHUB_TOKEN }}" | docker login ${{ env.REGISTRY }} -u ${{ github.actor }} --password-stdin
+          printf '%s' "${{ secrets.LYDIA_REGISTRY3_PASSWORD }}" | docker login ${{ vars.REGISTRY2 }} -u init --password-stdin
 
       - name: Build and push
         id: sha
@@ -47,6 +48,7 @@ jobs:
         run: |
           SHORT_SHA=$(echo "${{ github.sha }}" | cut -c1-7)
           IMAGE_BASE="${{ env.REGISTRY }}/$(echo '${{ env.IMAGE_NAME }}' | tr '[:upper:]' '[:lower:]')"
+          IMAGE_BASE_LYDIA="registry03.nykos.sys:8443/testing/"
           echo "short=$SHORT_SHA" >> $GITHUB_OUTPUT
 
           docker build \
@@ -54,9 +56,13 @@ jobs:
             --build-arg BUILD_TIME="$(date '+%Y-%m-%d %H:%M:%S %Z')" \
             -t "${IMAGE_BASE}:${SHORT_SHA}" .
           docker tag "${IMAGE_BASE}:${SHORT_SHA}" "${IMAGE_BASE}:latest"
+          docker tag "${IMAGE_BASE}:${SHORT_SHA}" "${IMAGE_BASE_LYDIA}:${SHORT_SHA}"
+          docker tag "${IMAGE_BASE}:${SHORT_SHA}" "${IMAGE_BASE}:latest"
 
           docker push "${IMAGE_BASE}:${SHORT_SHA}"
           docker push "${IMAGE_BASE}:latest"
+          docker push "${IMAGE_BASE_LYDIA}:${SHORT_SHA}"
+          docker push "${IMAGE_BASE_LYDIA}:latest"
 
       - name: Extract version from package.json
         id: version
