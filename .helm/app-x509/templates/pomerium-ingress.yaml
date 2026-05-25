@@ -1,0 +1,27 @@
+{{- if and .Values.pomeriumIngress .Values.route.host }}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ .Values.appName }}
+  namespace: {{ .Values.namespace }}
+  annotations:
+    cert-manager.io/cluster-issuer: {{ .Values.acmeIssuerName }}
+    ingress.pomerium.io/allow_any_authenticated_user: "true"
+spec:
+  ingressClassName: pomerium
+  tls:
+    - hosts:
+        - {{ .Values.route.host }}
+      secretName: {{ .Values.appName }}-nginx-tls
+  rules:
+    - host: {{ .Values.route.host }}
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ .Values.appName }}-nginx
+                port:
+                  number: 8443
+{{- end }}

@@ -208,11 +208,12 @@ async function deployAppX509() {
   const { name: releaseName, namespace, routeHost } = getAppConfig();
 
   const nginxTlsDirect = ensureNginxTlsDirect();
-  const nginxCa = nginxTlsDirect ? null : ensureNginxCa();
+  const nginxCa        = nginxTlsDirect ? null : ensureNginxCa();
   const acmeUrl        = (nginxTlsDirect || nginxCa) ? '-' : (process.env.ACME_DIRECTORY_URL || '-');
   const acmeIssuerName = (process.env.ACME_ISSUER_NAME && process.env.ACME_ISSUER_NAME !== '-') ? process.env.ACME_ISSUER_NAME : 'internal-ca';
+  const pomerium       = !nginxTlsDirect && !nginxCa && acmeUrl === '-' && hasPomerium();
 
-  logCertMode(nginxCa, acmeUrl, nginxTlsDirect);
+  logCertMode(nginxCa, acmeUrl, nginxTlsDirect, pomerium);
   ensureNamespace(namespace);
   const tlsSecretName = `${releaseName}-nginx-tls`;
   if (nginxTlsDirect) {
@@ -238,11 +239,12 @@ async function deployAppX509() {
       `--set acmeIssuerName="${acmeIssuerName}" ` +
       (routeHost ? `--set route.host="${routeHost}" ` : '') +
       (nginxCa ? `--set-file nginxCaCert="${nginxCa.certPath}" --set-file nginxCaKey="${nginxCa.keyPath}" ` : '') +
+      `--set pomeriumIngress="${pomerium}" ` +
       appConfigSetFileFlags(),
       { stdio: 'inherit' }
     );
     console.log(`\n✓ ${releaseName} deployed`);
-    if (acmeUrl && acmeUrl !== '-') waitForCertAndRestartNginx(namespace, releaseName);
+    if ((acmeUrl && acmeUrl !== '-') || pomerium) waitForCertAndRestartNginx(namespace, releaseName);
     else showCertStatus(namespace, releaseName);
     try {
       const route = runCommand(`kubectl get route ${releaseName} -n ${namespace} -o jsonpath="{.spec.host}" 2>/dev/null`, { encoding: 'utf8' }).trim();
@@ -286,8 +288,9 @@ async function deployAppOAuth2() {
   const nginxCa        = nginxTlsDirect ? null : ensureNginxCa();
   const acmeUrl        = (nginxTlsDirect || nginxCa) ? '-' : (process.env.ACME_DIRECTORY_URL || '-');
   const acmeIssuerName = (process.env.ACME_ISSUER_NAME && process.env.ACME_ISSUER_NAME !== '-') ? process.env.ACME_ISSUER_NAME : 'internal-ca';
+  const pomerium       = !nginxTlsDirect && !nginxCa && acmeUrl === '-' && hasPomerium();
 
-  logCertMode(nginxCa, acmeUrl, nginxTlsDirect);
+  logCertMode(nginxCa, acmeUrl, nginxTlsDirect, pomerium);
   ensureNamespace(namespace);
   const tlsSecretName = `${releaseName}-nginx-tls`;
   if (nginxTlsDirect) {
@@ -319,10 +322,11 @@ async function deployAppOAuth2() {
       (routeHost ? `--set route.host="${routeHost}" ` : '') +
       (nginxCa ? `--set-file nginxCaCert="${nginxCa.certPath}" --set-file nginxCaKey="${nginxCa.keyPath}" ` : '') +
       (providerCertPath ? `--set-file oauth2Proxy.providerCaCert="${providerCertPath}" ` : '') +
+      `--set pomeriumIngress="${pomerium}" ` +
       appConfigSetFileFlags();
     runCommand(cmd, { stdio: 'inherit' });
     console.log(`\n✓ ${releaseName} deployed`);
-    if (acmeUrl && acmeUrl !== '-') waitForCertAndRestartNginx(namespace, releaseName);
+    if ((acmeUrl && acmeUrl !== '-') || pomerium) waitForCertAndRestartNginx(namespace, releaseName);
     else showCertStatus(namespace, releaseName);
     try {
       const route = runCommand(`kubectl get route ${releaseName} -n ${namespace} -o jsonpath="{.spec.host}" 2>/dev/null`, { encoding: 'utf8' }).trim();
@@ -342,6 +346,13 @@ async function deleteAppOAuth2() {
   try { runCommand(`helm uninstall ${appName} --namespace ${namespace}`, { stdio: 'inherit' }); } catch (_) {}
   cleanupNamespace(namespace);
   console.log(`\n✓ ${appName} (oauth2) deleted`);
+}
+
+function hasPomerium() {
+  try {
+    runCommand('kubectl get ingressclass pomerium 2>/dev/null', { stdio: 'pipe' });
+    return true;
+  } catch (_) { return false; }
 }
 
 function getClusterDomain() {
@@ -449,13 +460,23 @@ function ensureNginxCa() {
 }
 
 
-function logCertMode(nginxCa, acmeUrl, nginxTlsDirect) {
+function logCertMode(nginxCa, acmeUrl, nginxTlsDirect, pomerium = false) {
   if (nginxTlsDirect) {
     console.log(`\n📋 TLS mode: pre-supplied cert  (${nginxTlsDirect.certPath})`);
     return;
   }
   if (nginxCa) {
     console.log(`\n📋 TLS mode: local CA  (${nginxCa.certPath})`);
+    return;
+  }
+  if (pomerium) {
+    console.log('\n📋 TLS mode: Pomerium (cert-manager via Pomerium Ingress)');
+    try {
+      runCommand('kubectl get crd certificates.cert-manager.io 2>/dev/null', { stdio: 'pipe' });
+      console.log('   cert-manager: ✓ CRDs present');
+    } catch (_) {
+      console.warn('   cert-manager: ✗ CRDs NOT found — deploy will fail');
+    }
     return;
   }
   if (acmeUrl && acmeUrl !== '-') {
