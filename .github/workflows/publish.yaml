@@ -48,7 +48,7 @@ jobs:
         run: |
           SHORT_SHA=$(echo "${{ github.sha }}" | cut -c1-7)
           IMAGE_BASE="${{ env.REGISTRY }}/$(echo '${{ env.IMAGE_NAME }}' | tr '[:upper:]' '[:lower:]')"
-          IMAGE_BASE_LYDIA="registry03.nykos.sys:8443/testing/"
+          IMAGE_BASE_LYDIA="registry03.nykos.sys:8443/testing/$(echo '${{ env.IMAGE_NAME }}' | tr '[:upper:]' '[:lower:]')"
           echo "short=$SHORT_SHA" >> $GITHUB_OUTPUT
 
           docker build \
