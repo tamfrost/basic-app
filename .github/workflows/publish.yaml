@@ -57,7 +57,7 @@ jobs:
             -t "${IMAGE_BASE}:${SHORT_SHA}" .
           docker tag "${IMAGE_BASE}:${SHORT_SHA}" "${IMAGE_BASE}:latest"
           docker tag "${IMAGE_BASE}:${SHORT_SHA}" "${IMAGE_BASE_LYDIA}:${SHORT_SHA}"
-          docker tag "${IMAGE_BASE}:${SHORT_SHA}" "${IMAGE_BASE}:latest"
+          docker tag "${IMAGE_BASE}:${SHORT_SHA}" "${IMAGE_BASE_LYDIA}:latest"
 
           docker push "${IMAGE_BASE}:${SHORT_SHA}"
           docker push "${IMAGE_BASE}:latest"
