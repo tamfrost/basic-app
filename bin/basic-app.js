@@ -244,8 +244,8 @@ async function deployAppX509() {
       { stdio: 'inherit' }
     );
     console.log(`\n✓ ${releaseName} deployed`);
-    if ((acmeUrl && acmeUrl !== '-') || pomerium) waitForCertAndRestartNginx(namespace, releaseName);
-    else showCertStatus(namespace, releaseName);
+    if (acmeUrl && acmeUrl !== '-') waitForCertAndRestartNginx(namespace, releaseName);
+    else showCertStatus(namespace, releaseName, pomerium);
     try {
       const route = runCommand(`kubectl get route ${releaseName} -n ${namespace} -o jsonpath="{.spec.host}" 2>/dev/null`, { encoding: 'utf8' }).trim();
       if (route) console.log(`🌐 https://${route}  (requires client cert)`);
@@ -326,8 +326,8 @@ async function deployAppOAuth2() {
       appConfigSetFileFlags();
     runCommand(cmd, { stdio: 'inherit' });
     console.log(`\n✓ ${releaseName} deployed`);
-    if ((acmeUrl && acmeUrl !== '-') || pomerium) waitForCertAndRestartNginx(namespace, releaseName);
-    else showCertStatus(namespace, releaseName);
+    if (acmeUrl && acmeUrl !== '-') waitForCertAndRestartNginx(namespace, releaseName);
+    else showCertStatus(namespace, releaseName, pomerium);
     try {
       const route = runCommand(`kubectl get route ${releaseName} -n ${namespace} -o jsonpath="{.spec.host}" 2>/dev/null`, { encoding: 'utf8' }).trim();
       if (route) console.log(`🌐 https://${route}  (x509 + oauth2)`);
