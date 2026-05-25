@@ -348,6 +348,50 @@ async function deleteAppOAuth2() {
   console.log(`\n✓ ${appName} (oauth2) deleted`);
 }
 
+async function deployAppHttp() {
+  const registry   = process.env.CONTAINER_REGISTRY   || 'ghcr.io';
+  const repository = process.env.CONTAINER_REPOSITORY || 'tamfrost/basic-app';
+  const chartPath  = path.join(__dirname, '../.helm/app-http');
+  const { name: releaseName, namespace, routeHost } = getAppConfig();
+  const acmeIssuerName = (process.env.ACME_ISSUER_NAME && process.env.ACME_ISSUER_NAME !== '-') ? process.env.ACME_ISSUER_NAME : 'clusterissuer-primkey-acme';
+
+  if (!routeHost) { console.error('\nCannot determine route host — check APP_ADDRESS and cluster domain.'); process.exit(1); }
+  console.log(`\n📋 TLS mode: Pomerium + cert-manager  (issuer: ${acmeIssuerName})`);
+  console.log(`   https://${routeHost}`);
+
+  ensureNamespace(namespace);
+  console.log(`\nDeploying ${releaseName} (http) to ${namespace}...`);
+  try {
+    runCommand(
+      `helm upgrade --install ${releaseName} "${chartPath}" ` +
+      `--create-namespace --namespace ${namespace} ` +
+      `--set appName="${releaseName}" ` +
+      `--set namespace="${namespace}" ` +
+      `--set image.registry="${registry}" ` +
+      `--set image.repository="${repository}" ` +
+      `--set route.host="${routeHost}" ` +
+      `--set acmeIssuerName="${acmeIssuerName}" ` +
+      appConfigSetFileFlags(),
+      { stdio: 'inherit' }
+    );
+    console.log(`\n✓ ${releaseName} deployed`);
+    console.log(`🌐 https://${routeHost}`);
+    console.log('\nCert will be provisioned automatically by cert-manager via Pomerium.');
+    console.log(`   Check progress: kubectl get certificate,order,challenge -n ${namespace}`);
+  } catch (error) {
+    console.error('\nDeploy failed:', error.message);
+  }
+}
+
+async function deleteAppHttp() {
+  const { name: appName, namespace } = getAppConfig();
+  const ok = await confirm({ message: `Delete ${appName} (http) from namespace ${namespace}?`, default: false });
+  if (!ok) { console.log('Cancelled.'); return; }
+  try { runCommand(`helm uninstall ${appName} --namespace ${namespace}`, { stdio: 'inherit' }); } catch (_) {}
+  cleanupNamespace(namespace);
+  console.log(`\n✓ ${appName} (http) deleted`);
+}
+
 function hasPomerium() {
   try {
     runCommand('kubectl get ingressclass pomerium 2>/dev/null', { stdio: 'pipe' });
@@ -808,6 +852,19 @@ async function appOAuth2Menu() {
   if (action === 'delete_argocd')  await deleteAppOAuth2ArgoCD();
 }
 
+async function appHttpMenu() {
+  const action = await select({
+    message: 'App (http):',
+    choices: [
+      { name: 'Deploy',  value: 'deploy'  },
+      { name: 'Delete',  value: 'delete'  },
+      { name: 'Back',    value: 'back'    },
+    ]
+  });
+  if (action === 'deploy') await deployAppHttp();
+  if (action === 'delete') await deleteAppHttp();
+}
+
 async function appX509Menu() {
   const action = await select({
     message: 'App (x509):',
@@ -882,7 +939,8 @@ async function main() {
       message: 'What would you like to do?',
       choices: [
         { name: 'App', value: 'app' },
-        { name: 'App (x509)', value: 'app_x509' },
+        { name: 'App (http)',   value: 'app_http'   },
+        { name: 'App (x509)',  value: 'app_x509'   },
         { name: 'App (oauth2)', value: 'app_oauth2' },
         { name: 'Check kubectl context', value: 'check_context' },
         { name: 'Get GitHub variables', value: 'get_variables' },
@@ -894,6 +952,10 @@ async function main() {
     switch (action) {
       case 'app':
         await appMenu();
+        console.log('\n');
+        break;
+      case 'app_http':
+        await appHttpMenu();
         console.log('\n');
         break;
       case 'app_x509':

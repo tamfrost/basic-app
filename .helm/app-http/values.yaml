@@ -1,0 +1,23 @@
+appName: basic-app
+namespace: basic-app
+
+replicaCount: 1
+
+image:
+  registry: ""
+  repository: ""
+  tag: "latest"
+  pullPolicy: Always
+
+service:
+  port: 3000
+
+route:
+  host: ""
+
+acmeIssuerName: "clusterissuer-primkey-acme"
+
+appConfig:
+  js: ""
+  json: ""
+  yaml: ""

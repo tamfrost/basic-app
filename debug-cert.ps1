@@ -98,7 +98,8 @@ if (-not $podName) {
 }
 if ($podName) {
     Write-Host "Pod: $podName" -ForegroundColor Yellow
-    Run "kubectl exec $podName -n $Namespace -- openssl s_client -connect localhost:8443 -showcerts </dev/null 2>/dev/null | openssl x509 -noout -subject -issuer -dates"
+    $certInfo = kubectl exec $podName -n $Namespace -- sh -c "echo | openssl s_client -connect localhost:8443 -showcerts 2>/dev/null | openssl x509 -noout -subject -issuer -dates 2>/dev/null"
+    Write-Host $certInfo
 } else {
     Write-Host "No nginx pod found with label app=$nginxSvc" -ForegroundColor Red
     Run "kubectl get pods -n $Namespace"
