@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>basic-app</title>
+  <style>
+    body { font-family: sans-serif; max-width: 800px; margin: 40px auto; padding: 0 20px; }
+    h1 { margin-bottom: 4px; }
+    .meta { color: #888; font-size: 0.8em; margin-top: 2px; margin-bottom: 24px; }
+    h2 { margin-top: 28px; margin-bottom: 8px; }
+    table { border-collapse: collapse; }
+    th, td { border: 1px solid #ccc; padding: 6px 10px; text-align: left; }
+    th { background: #f4f4f4; }
+    pre { background: #f4f4f4; padding: 12px; border-radius: 4px; overflow: auto; font-size: 0.85em; }
+    .hidden { display: none; }
+  </style>
+</head>
+<body>
+  <h1>hello from basic-app</h1>
+  <p class="meta" id="build-info"></p>
+
+  <div id="auth-section" class="hidden">
+    <h2>Authenticated user</h2>
+    <table id="auth-table"></table>
+  </div>
+
+  <div id="cert-section" class="hidden">
+    <h2>Client certificate</h2>
+    <table id="cert-table"></table>
+  </div>
+
+  <div id="config-section" class="hidden">
+    <h2>App config</h2>
+    <div id="config-content"></div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>

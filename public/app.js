@@ -1,0 +1,31 @@
+fetch('/api/info')
+  .then(r => r.json())
+  .then(data => {
+    document.getElementById('build-info').textContent =
+      `commit: ${data.gitCommit} | built: ${data.buildTime}`;
+
+    if (data.auth.user || data.auth.email || data.auth.groups) {
+      const rows = [
+        ['User',   data.auth.user],
+        ['Email',  data.auth.email],
+        ['Groups', data.auth.groups],
+      ].filter(([, v]) => v);
+      document.getElementById('auth-table').innerHTML =
+        rows.map(([k, v]) => `<tr><th>${k}</th><td>${v}</td></tr>`).join('');
+      document.getElementById('auth-section').classList.remove('hidden');
+    }
+
+    if (data.cert.verify) {
+      const rows = [['Verify', data.cert.verify], ['DN', data.cert.dn]];
+      if (data.cert.pem) rows.push(['Cert', `<pre>${data.cert.pem}</pre>`]);
+      document.getElementById('cert-table').innerHTML =
+        rows.map(([k, v]) => `<tr><th>${k}</th><td>${v}</td></tr>`).join('');
+      document.getElementById('cert-section').classList.remove('hidden');
+    }
+
+    if (data.config.length > 0) {
+      document.getElementById('config-content').innerHTML =
+        data.config.map(f => `<h3>${f.name}</h3><pre>${f.content}</pre>`).join('');
+      document.getElementById('config-section').classList.remove('hidden');
+    }
+  });
