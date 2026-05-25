@@ -4,7 +4,7 @@ name: Publish container
 
 on:
   push:
-    branches: [ca-signing]
+    branches: [pomerium]
   workflow_dispatch:
     inputs:
       run_on_mac:
