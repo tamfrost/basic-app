@@ -1,3 +1,4 @@
+{{- $host := .Values.route.host | replace ".apps." "." -}}
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
@@ -10,10 +11,10 @@ spec:
   ingressClassName: pomerium
   tls:
     - hosts:
-        - {{ .Values.route.host }}
+        - {{ $host }}
       secretName: {{ .Values.appName }}-tls
   rules:
-    - host: {{ .Values.route.host }}
+    - host: {{ $host }}
       http:
         paths:
           - path: /
