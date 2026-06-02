@@ -162,7 +162,7 @@ async function getGitHubVariables() {
 async function deployApp() {
   const registry   = process.env.CONTAINER_REGISTRY    || 'ghcr.io';
   const repository = process.env.CONTAINER_REPOSITORY  || 'tamfrost/basic-app';
-  const chartPath  = path.join(__dirname, '../.helm/app');
+  const chartPath  = path.join(__dirname, '../.helm/app-https');
   const { name: appName, namespace, routeHost } = getAppConfig();
 
   ensureNamespace(namespace);
@@ -786,7 +786,7 @@ async function deployAppArgoCD() {
   console.log(`\nDeploying ${appName} via Argo CD...`);
   const extraLines = [`appName: "${appName}"`, `namespace: "${namespace}"`, ...appConfigExtraLines()];
   try {
-    await deployArgoCD(appName, 'app', extraLines.join('\n'));
+    await deployArgoCD(appName, 'app-https', extraLines.join('\n'));
     console.log('\n✓ Argo CD application created');
   } catch (error) {
     console.error('\nDeploy failed:', error.message);
@@ -990,7 +990,7 @@ async function main() {
     const action = await select({
       message: 'What would you like to do?',
       choices: [
-        { name: 'App', value: 'app' },
+        { name: 'App (https)', value: 'app' },
         { name: 'App (http)',     value: 'app_http'     },
         { name: 'App (pomerium)', value: 'app_pomerium' },
         { name: 'App (x509)',  value: 'app_x509'   },

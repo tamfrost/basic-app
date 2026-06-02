@@ -1,0 +1,6 @@
+apiVersion: v2
+name: basic-app-https
+description: basic-app with HTTPS route (TLS edge termination)
+type: application
+version: 1.0.0
+appVersion: "1.0.0"
