@@ -1,6 +1,6 @@
 apiVersion: v2
 name: basic-app-http
-description: basic-app with Pomerium ingress (HTTP backend, TLS via cert-manager)
+description: basic-app with plain HTTP route (no TLS, no Pomerium)
 type: application
 version: 1.0.0
 appVersion: "1.0.0"

@@ -1,0 +1,33 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Values.appName }}
+  namespace: {{ .Values.namespace }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      app: {{ .Values.appName }}
+  template:
+    metadata:
+      labels:
+        app: {{ .Values.appName }}
+    spec:
+      containers:
+        - name: {{ .Values.appName }}
+          image: {{ required "image.registry is required" .Values.image.registry }}/{{ required "image.repository is required" .Values.image.repository }}:{{ .Values.image.tag }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - containerPort: {{ .Values.service.port }}
+          {{- if or .Values.appConfig.js .Values.appConfig.json .Values.appConfig.yaml }}
+          volumeMounts:
+            - name: app-config
+              mountPath: /app/config
+              readOnly: true
+          {{- end }}
+      {{- if or .Values.appConfig.js .Values.appConfig.json .Values.appConfig.yaml }}
+      volumes:
+        - name: app-config
+          configMap:
+            name: {{ .Values.appName }}-config
+      {{- end }}

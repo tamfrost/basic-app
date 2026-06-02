@@ -348,10 +348,10 @@ async function deleteAppOAuth2() {
   console.log(`\n✓ ${appName} (oauth2) deleted`);
 }
 
-async function deployAppHttp() {
+async function deployAppPomerium() {
   const registry   = process.env.CONTAINER_REGISTRY   || 'ghcr.io';
   const repository = process.env.CONTAINER_REPOSITORY || 'tamfrost/basic-app';
-  const chartPath  = path.join(__dirname, '../.helm/app-http');
+  const chartPath  = path.join(__dirname, '../.helm/app-pomerium');
   const { name: releaseName, namespace, routeHost } = getAppConfig();
   const acmeIssuerName = (process.env.ACME_ISSUER_NAME && process.env.ACME_ISSUER_NAME !== '-') ? process.env.ACME_ISSUER_NAME : 'clusterissuer-primkey-acme';
 
@@ -378,6 +378,45 @@ async function deployAppHttp() {
     console.log(`🌐 https://${routeHost}`);
     console.log('\nCert will be provisioned automatically by cert-manager via Pomerium.');
     console.log(`   Check progress: kubectl get certificate,order,challenge -n ${namespace}`);
+  } catch (error) {
+    console.error('\nDeploy failed:', error.message);
+  }
+}
+
+async function deleteAppPomerium() {
+  const { name: appName, namespace } = getAppConfig();
+  const ok = await confirm({ message: `Delete ${appName} (pomerium) from namespace ${namespace}?`, default: false });
+  if (!ok) { console.log('Cancelled.'); return; }
+  try { runCommand(`helm uninstall ${appName} --namespace ${namespace}`, { stdio: 'inherit' }); } catch (_) {}
+  cleanupNamespace(namespace);
+  console.log(`\n✓ ${appName} (pomerium) deleted`);
+}
+
+async function deployAppHttp() {
+  const registry   = process.env.CONTAINER_REGISTRY   || 'ghcr.io';
+  const repository = process.env.CONTAINER_REPOSITORY || 'tamfrost/basic-app';
+  const chartPath  = path.join(__dirname, '../.helm/app-http');
+  const { name: releaseName, namespace, routeHost } = getAppConfig();
+
+  ensureNamespace(namespace);
+  console.log(`\nDeploying ${releaseName} (http) to ${namespace}...`);
+  try {
+    runCommand(
+      `helm upgrade --install ${releaseName} "${chartPath}" ` +
+      `--create-namespace --namespace ${namespace} ` +
+      `--set appName="${releaseName}" ` +
+      `--set namespace="${namespace}" ` +
+      `--set image.registry="${registry}" ` +
+      `--set image.repository="${repository}" ` +
+      (routeHost ? `--set route.host="${routeHost}" ` : '') +
+      appConfigSetFileFlags(),
+      { stdio: 'inherit' }
+    );
+    console.log(`\n✓ ${releaseName} (http) deployed`);
+    try {
+      const route = runCommand(`kubectl get route ${releaseName} -n ${namespace} -o jsonpath="{.spec.host}" 2>/dev/null`, { encoding: 'utf8' }).trim();
+      if (route) console.log(`🌐 http://${route}`);
+    } catch (_) {}
   } catch (error) {
     console.error('\nDeploy failed:', error.message);
   }
@@ -865,6 +904,19 @@ async function appHttpMenu() {
   if (action === 'delete') await deleteAppHttp();
 }
 
+async function appPomeriumMenu() {
+  const action = await select({
+    message: 'App (pomerium):',
+    choices: [
+      { name: 'Deploy',  value: 'deploy'  },
+      { name: 'Delete',  value: 'delete'  },
+      { name: 'Back',    value: 'back'    },
+    ]
+  });
+  if (action === 'deploy') await deployAppPomerium();
+  if (action === 'delete') await deleteAppPomerium();
+}
+
 async function appX509Menu() {
   const action = await select({
     message: 'App (x509):',
@@ -939,7 +991,8 @@ async function main() {
       message: 'What would you like to do?',
       choices: [
         { name: 'App', value: 'app' },
-        { name: 'App (http)',   value: 'app_http'   },
+        { name: 'App (http)',     value: 'app_http'     },
+        { name: 'App (pomerium)', value: 'app_pomerium' },
         { name: 'App (x509)',  value: 'app_x509'   },
         { name: 'App (oauth2)', value: 'app_oauth2' },
         { name: 'Check kubectl context', value: 'check_context' },
@@ -956,6 +1009,10 @@ async function main() {
         break;
       case 'app_http':
         await appHttpMenu();
+        console.log('\n');
+        break;
+      case 'app_pomerium':
+        await appPomeriumMenu();
         console.log('\n');
         break;
       case 'app_x509':
