@@ -159,6 +159,26 @@ async function getGitHubVariables() {
   }
 }
 
+function getAppHttpsHelmArgs({ appName, namespace, registry, repository, routeHost }) {
+  return (
+    `--set appName="${appName}" ` +
+    `--set namespace="${namespace}" ` +
+    `--set image.registry="${registry}" ` +
+    `--set image.repository="${repository}" ` +
+    (routeHost ? `--set route.host="${routeHost}" ` : '') +
+    appConfigSetFileFlags()
+  );
+}
+
+function getAppHttpsExtraLines({ appName, namespace, routeHost }) {
+  return [
+    `appName: "${appName}"`,
+    `namespace: "${namespace}"`,
+    ...(routeHost ? [`route:\n  host: "${routeHost}"`] : []),
+    ...appConfigExtraLines(),
+  ];
+}
+
 async function deployApp() {
   const registry   = process.env.CONTAINER_REGISTRY    || 'ghcr.io';
   const repository = process.env.CONTAINER_REPOSITORY  || 'tamfrost/basic-app';
@@ -171,12 +191,7 @@ async function deployApp() {
     runCommand(
       `helm upgrade --install ${appName} "${chartPath}" ` +
       `--create-namespace --namespace ${namespace} ` +
-      `--set appName="${appName}" ` +
-      `--set namespace="${namespace}" ` +
-      `--set image.registry="${registry}" ` +
-      `--set image.repository="${repository}" ` +
-      (routeHost ? `--set route.host="${routeHost}" ` : '') +
-      appConfigSetFileFlags(),
+      getAppHttpsHelmArgs({ appName, namespace, registry, repository, routeHost }),
       { stdio: 'inherit' }
     );
     console.log(`\n✓ ${appName} deployed`);
@@ -781,9 +796,9 @@ async function deleteArgoCD(appName) {
 }
 
 async function deployAppArgoCD() {
-  const { name: appName, namespace } = getAppConfig();
+  const { name: appName, namespace, routeHost } = getAppConfig();
   console.log(`\nDeploying ${appName} via Argo CD...`);
-  const extraLines = [`appName: "${appName}"`, `namespace: "${namespace}"`, ...appConfigExtraLines()];
+  const extraLines = getAppHttpsExtraLines({ appName, namespace, routeHost });
   try {
     await deployArgoCD(appName, 'app-https', extraLines.join('\n'));
     console.log('\n✓ Argo CD application created');
