@@ -1,8 +1,8 @@
 name: Fetch environment
 
 on:
-  push:
-    branches: [pomerium]
+  # push:
+  #   branches: [pomerium]
   workflow_dispatch:
 
 jobs:
