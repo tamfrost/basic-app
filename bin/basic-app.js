@@ -362,30 +362,50 @@ async function deleteAppOAuth2() {
   console.log(`\n✓ ${appName} (oauth2) deleted`);
 }
 
+function getPomeriumAcmeIssuerName() {
+  return (process.env.ACME_ISSUER_NAME && process.env.ACME_ISSUER_NAME !== '-') ? process.env.ACME_ISSUER_NAME : 'clusterissuer-primkey-acme';
+}
+
+function getAppPomeriumHelmArgs({ appName, namespace, registry, repository, routeHost, acmeIssuerName }) {
+  return (
+    `--set appName="${appName}" ` +
+    `--set namespace="${namespace}" ` +
+    `--set image.registry="${registry}" ` +
+    `--set image.repository="${repository}" ` +
+    `--set route.host="${routeHost}" ` +
+    `--set acmeIssuerName="${acmeIssuerName}" ` +
+    appConfigSetFileFlags()
+  );
+}
+
+function getAppPomeriumExtraLines({ appName, namespace, routeHost, acmeIssuerName }) {
+  return [
+    `appName: "${appName}"`,
+    `namespace: "${namespace}"`,
+    `route:\n  host: "${routeHost}"`,
+    `acmeIssuerName: "${acmeIssuerName}"`,
+    ...appConfigExtraLines(),
+  ];
+}
+
 async function deployAppPomerium() {
   const registry   = process.env.CONTAINER_REGISTRY   || 'ghcr.io';
   const repository = process.env.CONTAINER_REPOSITORY || 'tamfrost/basic-app';
   const chartPath  = path.join(__dirname, '../.helm/app-pomerium');
   const { name: releaseName, namespace, routeHost } = getAppConfig();
-  const acmeIssuerName = (process.env.ACME_ISSUER_NAME && process.env.ACME_ISSUER_NAME !== '-') ? process.env.ACME_ISSUER_NAME : 'clusterissuer-primkey-acme';
+  const acmeIssuerName = getPomeriumAcmeIssuerName();
 
   if (!routeHost) { console.error('\nCannot determine route host — check APP_ADDRESS and cluster domain.'); process.exit(1); }
   console.log(`\n📋 TLS mode: Pomerium + cert-manager  (issuer: ${acmeIssuerName})`);
   console.log(`   https://${routeHost}`);
 
   ensureNamespace(namespace);
-  console.log(`\nDeploying ${releaseName} (http) to ${namespace}...`);
+  console.log(`\nDeploying ${releaseName} (pomerium) to ${namespace}...`);
   try {
     runCommand(
       `helm upgrade --install ${releaseName} "${chartPath}" ` +
       `--create-namespace --namespace ${namespace} ` +
-      `--set appName="${releaseName}" ` +
-      `--set namespace="${namespace}" ` +
-      `--set image.registry="${registry}" ` +
-      `--set image.repository="${repository}" ` +
-      `--set route.host="${routeHost}" ` +
-      `--set acmeIssuerName="${acmeIssuerName}" ` +
-      appConfigSetFileFlags(),
+      getAppPomeriumHelmArgs({ appName: releaseName, namespace, registry, repository, routeHost, acmeIssuerName }),
       { stdio: 'inherit' }
     );
     console.log(`\n✓ ${releaseName} deployed`);
@@ -395,6 +415,26 @@ async function deployAppPomerium() {
   } catch (error) {
     console.error('\nDeploy failed:', error.message);
   }
+}
+
+async function deployAppPomeriumArgoCD() {
+  const { name: appName, namespace, routeHost } = getAppConfig();
+  const acmeIssuerName = getPomeriumAcmeIssuerName();
+  if (!routeHost) { console.error('\nCannot determine route host — check APP_ADDRESS and cluster domain.'); process.exit(1); }
+  console.log(`\nDeploying ${appName} (pomerium) via Argo CD...`);
+  const extraLines = getAppPomeriumExtraLines({ appName, namespace, routeHost, acmeIssuerName });
+  try {
+    await deployArgoCD(`${appName}-pomerium`, 'app-pomerium', extraLines.join('\n'));
+    console.log('\n✓ Argo CD application created');
+    console.log(`🌐 https://${routeHost}`);
+  } catch (error) {
+    console.error('\nDeploy failed:', error.message);
+  }
+}
+
+async function deleteAppPomeriumArgoCD() {
+  const { name: appName } = getAppConfig();
+  try { await deleteArgoCD(`${appName}-pomerium`); } catch (error) { console.error('\nDelete failed:', error.message); }
 }
 
 async function deleteAppPomerium() {
@@ -922,13 +962,17 @@ async function appPomeriumMenu() {
   const action = await select({
     message: 'App (pomerium):',
     choices: [
-      { name: 'Deploy',  value: 'deploy'  },
-      { name: 'Delete',  value: 'delete'  },
-      { name: 'Back',    value: 'back'    },
+      { name: 'Deploy',          value: 'deploy'         },
+      { name: 'Delete',          value: 'delete'         },
+      { name: 'Deploy Argo CD',  value: 'deploy_argocd'  },
+      { name: 'Delete Argo CD',  value: 'delete_argocd'  },
+      { name: 'Back',            value: 'back'           },
     ]
   });
-  if (action === 'deploy') await deployAppPomerium();
-  if (action === 'delete') await deleteAppPomerium();
+  if (action === 'deploy')        await deployAppPomerium();
+  if (action === 'delete')        await deleteAppPomerium();
+  if (action === 'deploy_argocd') { grantArgoCDPermissions(); await deployAppPomeriumArgoCD(); }
+  if (action === 'delete_argocd') await deleteAppPomeriumArgoCD();
 }
 
 async function appX509Menu() {
