@@ -175,7 +175,6 @@ async function deployApp() {
       `--set namespace="${namespace}" ` +
       `--set image.registry="${registry}" ` +
       `--set image.repository="${repository}" ` +
-      `--set route.enabled=true ` +
       (routeHost ? `--set route.host="${routeHost}" ` : '') +
       appConfigSetFileFlags(),
       { stdio: 'inherit' }
