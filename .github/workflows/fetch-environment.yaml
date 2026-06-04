@@ -1,8 +1,8 @@
 name: Fetch environment
 
 on:
-  # push:
-  #   branches: [ca-signing]
+  push:
+    branches: [pomerium]
   workflow_dispatch:
 
 jobs:
