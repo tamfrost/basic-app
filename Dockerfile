@@ -6,6 +6,7 @@ COPY package.json package-lock.json* ./
 RUN npm ci --omit=dev 2>/dev/null || true
 
 COPY server.js ./
+COPY public/ ./public/
 
 ARG GIT_COMMIT=unknown
 ARG BUILD_TIME=unknown
