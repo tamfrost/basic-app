@@ -46,10 +46,15 @@ function serveStatic(req, res) {
 
 function apiInfo(req, res) {
   const config = [
-    { name: 'config.json', content: readConfig('config.json') },
-    { name: 'config.yaml', content: readConfig('config.yaml') },
-    { name: 'config.js',   content: readConfig('config.js')   },
-  ].filter(f => f.content !== null);
+    { name: 'config.json', raw: readConfig('config.json') },
+    { name: 'config.yaml', raw: readConfig('config.yaml') },
+    { name: 'config.js',   raw: readConfig('config.js')   },
+  ].filter(f => f.raw !== null).map(f => {
+    if (f.name.endsWith('.json')) {
+      try { return { name: f.name, content: JSON.parse(f.raw) }; } catch (_) {}
+    }
+    return { name: f.name, content: f.raw.split('\n') };
+  });
 
   const jwt = req.headers['x-pomerium-jwt-assertion']
     ? decodePomeriumJWT(req.headers['x-pomerium-jwt-assertion'])
@@ -77,6 +82,8 @@ function apiInfo(req, res) {
 }
 
 http.createServer((req, res) => {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  if (req.method === 'OPTIONS') { res.writeHead(204); res.end(); return; }
   if (req.url === '/api/info' || req.url.startsWith('/api/info?')) {
     apiInfo(req, res);
   } else {

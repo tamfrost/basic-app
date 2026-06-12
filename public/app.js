@@ -26,7 +26,12 @@ fetch('/api/info')
 
     if (data.config.length > 0) {
       document.getElementById('config-content').innerHTML =
-        data.config.map(f => `<h3>${f.name}</h3><pre>${f.content}</pre>`).join('');
+        data.config.map(f => {
+          const text = Array.isArray(f.content)
+            ? f.content.join('\n')
+            : (typeof f.content === 'object' ? JSON.stringify(f.content, null, 2) : f.content);
+          return `<h3>${f.name}</h3><pre>${text}</pre>`;
+        }).join('');
       document.getElementById('config-section').classList.remove('hidden');
     }
   });
