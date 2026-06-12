@@ -363,7 +363,11 @@ async function deleteAppOAuth2() {
 }
 
 function getPomeriumAcmeIssuerName() {
-  return (process.env.ACME_ISSUER_NAME && process.env.ACME_ISSUER_NAME !== '-') ? process.env.ACME_ISSUER_NAME : 'clusterissuer-primkey-acme';
+  if (process.env.ACME_ISSUER_NAME && process.env.ACME_ISSUER_NAME !== '-') return process.env.ACME_ISSUER_NAME;
+  try {
+    runCommand('kubectl get clusterissuer clusterissuer-primkey-acme 2>/dev/null', { stdio: 'pipe' });
+    return 'clusterissuer-primkey-acme';
+  } catch (_) { return '-'; }
 }
 
 function getAppPomeriumHelmArgs({ appName, namespace, registry, repository, routeHost, acmeIssuerName }) {
