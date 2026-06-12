@@ -4,8 +4,9 @@ fetch('/api/info')
     document.getElementById('build-info').textContent =
       `commit: ${data.gitCommit} | built: ${data.buildTime}`;
 
-    if (data.auth.user || data.auth.email || data.auth.groups) {
+    if (data.auth.user || data.auth.email || data.auth.groups || data.auth.name) {
       const rows = [
+        ['Name',   data.auth.name],
         ['User',   data.auth.user],
         ['Email',  data.auth.email],
         ['Groups', data.auth.groups],

@@ -21,6 +21,13 @@ function readConfig(filename) {
   try { return fs.readFileSync(path.join(CONFIG_DIR, filename), 'utf8'); } catch (_) { return null; }
 }
 
+function decodePomeriumJWT(token) {
+  try {
+    const payload = token.split('.')[1];
+    return JSON.parse(Buffer.from(payload, 'base64url').toString('utf8'));
+  } catch (_) { return null; }
+}
+
 function serveStatic(req, res) {
   const urlPath = req.url === '/' ? '/index.html' : req.url.split('?')[0];
   const filePath = path.join(PUBLIC_DIR, urlPath);
@@ -44,13 +51,18 @@ function apiInfo(req, res) {
     { name: 'config.js',   content: readConfig('config.js')   },
   ].filter(f => f.content !== null);
 
+  const jwt = req.headers['x-pomerium-jwt-assertion']
+    ? decodePomeriumJWT(req.headers['x-pomerium-jwt-assertion'])
+    : null;
+
   const payload = {
     gitCommit: process.env.GIT_COMMIT || 'unknown',
     buildTime: process.env.BUILD_TIME || 'unknown',
     auth: {
-      user:   req.headers['x-auth-request-user']   || req.headers['x-forwarded-user']   || '',
-      email:  req.headers['x-auth-request-email']  || req.headers['x-forwarded-email']  || '',
-      groups: req.headers['x-auth-request-groups'] || req.headers['x-forwarded-groups'] || '',
+      user:   req.headers['x-auth-request-user']  || req.headers['x-forwarded-user']  || jwt?.user  || jwt?.sub    || '',
+      email:  req.headers['x-auth-request-email'] || req.headers['x-forwarded-email'] || jwt?.email || '',
+      groups: req.headers['x-auth-request-groups']|| req.headers['x-forwarded-groups']|| (Array.isArray(jwt?.groups) ? jwt.groups.join(', ') : jwt?.groups) || '',
+      name:   jwt?.name || '',
     },
     cert: {
       verify: req.headers['x-ssl-client-verify'] || '',
