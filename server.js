@@ -82,7 +82,7 @@ function apiInfo(req, res) {
 }
 
 http.createServer((req, res) => {
-  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Origin', 'http://localhost:3000');
   if (req.method === 'OPTIONS') { res.writeHead(204); res.end(); return; }
   if (req.url === '/api/info' || req.url.startsWith('/api/info?')) {
     apiInfo(req, res);
