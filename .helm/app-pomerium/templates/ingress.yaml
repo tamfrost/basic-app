@@ -29,3 +29,38 @@ spec:
                 name: {{ .Values.appName }}
                 port:
                   number: 80
+{{- if .Values.publicPaths }}
+---
+# Public route(s): same host, no authentication required. Pomerium matches the
+# most specific path prefix first, so these take precedence over the "/" route
+# above. Shares the {{ .Values.appName }}-tls secret; only the Ingress above
+# carries the cert-manager annotation so the cert is issued exactly once.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ .Values.appName }}-public
+  namespace: {{ .Values.namespace }}
+  annotations:
+    ingress.pomerium.io/allow_public_unauthenticated_access: "true"
+spec:
+  ingressClassName: pomerium
+  {{- if and .Values.acmeIssuerName (ne .Values.acmeIssuerName "-") }}
+  tls:
+    - hosts:
+        - {{ $host }}
+      secretName: {{ .Values.appName }}-tls
+  {{- end }}
+  rules:
+    - host: {{ $host }}
+      http:
+        paths:
+          {{- range .Values.publicPaths }}
+          - path: {{ . }}
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ $.Values.appName }}
+                port:
+                  number: 80
+          {{- end }}
+{{- end }}

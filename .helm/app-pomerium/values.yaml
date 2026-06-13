@@ -15,6 +15,12 @@ service:
 route:
   host: ""
 
+# Path prefixes served WITHOUT authentication (public Pomerium route).
+# Everything not listed here still requires login. Set to [] to make the
+# whole app authenticated.
+publicPaths:
+  - /api/info
+
 acmeIssuerName: "clusterissuer-primkey-acme"
 
 appConfig:
