@@ -42,6 +42,7 @@ metadata:
   namespace: {{ .Values.namespace }}
   annotations:
     ingress.pomerium.io/allow_public_unauthenticated_access: "true"
+    ingress.pomerium.io/pass_identity_headers: "true"
 spec:
   ingressClassName: pomerium
   {{- if and .Values.acmeIssuerName (ne .Values.acmeIssuerName "-") }}
