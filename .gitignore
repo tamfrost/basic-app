@@ -4,6 +4,8 @@ node_modules
 .env
 .env.fetched
 
+.claude
+
 # GitHub App private keys and config
 *.pem
 !certs/**/*.pem
