@@ -36,7 +36,12 @@
       "Bash(git add *)",
       "Bash(git commit *)",
       "Bash(gh repo *)",
-      "Bash(gh auth *)"
+      "Bash(gh auth *)",
+      "Bash(git rm *)",
+      "Bash(rm /home/ruser/projects/fra/basic-app/.helm/argocd/templates/repo-secret.yaml)"
+    ],
+    "additionalDirectories": [
+      "/home/ruser/projects/fra/basic-app/.helm/argocd/templates"
     ]
   }
 }

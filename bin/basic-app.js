@@ -697,15 +697,6 @@ function waitForCertAndRestartNginx(namespace, releaseName) {
   }
 }
 
-function getGitHubAppPrivateKey() {
-  let key = process.env.AUTH_APP_PRIVATE_KEY;
-  if (!key) throw new Error('AUTH_APP_PRIVATE_KEY not found in .env file');
-  key = key.replace(/^["']|["']$/g, '');
-  key = key.replace(/\\n/g, '\n');
-  key = key.replace(/\r/g, '');
-  return key;
-}
-
 function grantArgoCDPermissions() {
   const { name: appName, namespace } = getAppConfig();
   const argoCDNS = process.env.ARGOCD_NAMESPACE || 'openshift-gitops';
@@ -729,14 +720,7 @@ async function deployArgoCD(appName, chartSubPath, extraValues = '') {
   const registry       = process.env.CONTAINER_REGISTRY || 'ghcr.io';
   const repository     = process.env.CONTAINER_REPOSITORY || 'tamfrost/basic-app';
   const argoCDNS       = process.env.ARGOCD_NAMESPACE || 'openshift-gitops';
-  const appId          = process.env.AUTH_APP_ID;
-  const installationId = process.env.AUTH_APP_INSTALLATION_ID;
-  const privateKey     = getGitHubAppPrivateKey();
   const { namespace }  = getAppConfig();
-
-  const tmpKeyFile = path.join(__dirname, '../.tmp-gh-app-key.pem');
-  fs.writeFileSync(tmpKeyFile, privateKey, 'utf8');
-  const tmpKeyFilePosix = tmpKeyFile.replace(/\\/g, '/');
 
   const tmpValuesFile = extraValues ? path.join(__dirname, '../.tmp-extra-values.yaml') : null;
   if (tmpValuesFile) fs.writeFileSync(tmpValuesFile, extraValues, 'utf8');
@@ -748,21 +732,12 @@ async function deployArgoCD(appName, chartSubPath, extraValues = '') {
   } catch (_) {}
 
 
-
-  try {
-    runCommand(`kubectl delete secret ${appName}-infra-repo -n ${argoCDNS}`, { stdio: 'pipe' });
-  } catch (_) {}
-
   try {
     runCommand(
       `helm template ${appName} "${chartPath}" ` +
       `--set appName="${appName}" ` +
       `--set argoCDNamespace="${argoCDNS}" ` +
       `--set targetNamespace="${namespace}" ` +
-      `--set repository.url="${infraRepo}" ` +
-      `--set repository.githubAppID="${appId}" ` +
-      `--set repository.githubAppInstallationID="${installationId}" ` +
-      `--set-file repository.githubAppPrivateKey="${tmpKeyFilePosix}" ` +
       `--set source.repoURL="${infraRepo}" ` +
       `--set source.targetRevision="HEAD" ` +
       `--set source.path="${helmChartPath}/${chartSubPath}" ` +
@@ -781,7 +756,6 @@ async function deployArgoCD(appName, chartSubPath, extraValues = '') {
       execSync(`kubectl apply --field-manager=basic-app -f -`, { input: manifest, stdio: ['pipe', 'inherit', 'inherit'] });
     }
   } finally {
-    if (fs.existsSync(tmpKeyFile)) fs.unlinkSync(tmpKeyFile);
     if (tmpValuesFile && fs.existsSync(tmpValuesFile)) fs.unlinkSync(tmpValuesFile);
   }
 }
